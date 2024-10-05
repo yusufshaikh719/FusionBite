@@ -30,7 +30,7 @@ export default function SignUp() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       console.log("Sign up successful", userCredential.user.uid);
-      router.replace("/login");
+      router.replace("/biometricinfo");
     } catch (error) {
       console.error("Sign up error:", error);
       Alert.alert("Sign Up Failed", getErrorMessage(error.code));
@@ -65,7 +65,7 @@ export default function SignUp() {
           <View style={styles.inputWrapper}>
             <TextInput
               placeholder="Username"
-              placeholderTextColor="#2F3E46"
+              placeholderTextColor="#A3A3A3"
               style={styles.input}
               onChangeText={setUsername}
               value={username}
@@ -74,7 +74,7 @@ export default function SignUp() {
           <View style={styles.inputWrapper}>
             <TextInput
               placeholder="Email"
-              placeholderTextColor="#2F3E46"
+              placeholderTextColor="#A3A3A3"
               style={styles.input}
               onChangeText={setEmail}
               value={email}
@@ -85,7 +85,7 @@ export default function SignUp() {
           <View style={styles.inputWrapper}>
             <TextInput
               placeholder="Password"
-              placeholderTextColor="#2F3E46"
+              placeholderTextColor="#A3A3A3"
               style={styles.input}
               onChangeText={setPassword}
               value={password}
@@ -111,7 +111,7 @@ export default function SignUp() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#CAD2C5",
+    backgroundColor: "#2E2E2E", // dark grey background for consistency
     height: "100%",
     width: "100%",
   },
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     marginTop: 130,
   },
   headerText: {
-    color: "#354F52",
+    color: "#C8B08C", // warm beige header text
     fontWeight: "bold",
     letterSpacing: 3,
     fontSize: 45,
@@ -135,18 +135,19 @@ const styles = StyleSheet.create({
   inputContainer: {
     alignItems: "center",
     marginHorizontal: 16,
-    spaceBetween: 16,
     marginTop: 45,
   },
   inputWrapper: {
-    backgroundColor: "#B0C4B1",
+    backgroundColor: "#3B3B3B", // consistent grey for inputs
     padding: 16,
     borderRadius: 20,
     width: "100%",
     marginBottom: 20,
+    borderColor: "#5B5B5B",
+    borderWidth: 1,
   },
   input: {
-    color: "#2F3E46",
+    color: "#E1E1E1", // soft grey input text
   },
   buttonContainer: {
     width: "100%",
@@ -154,7 +155,7 @@ const styles = StyleSheet.create({
   },
   button: {
     width: "100%",
-    backgroundColor: "#52796F",
+    backgroundColor: "#4A6E52", // dark green tone for the button
     padding: 12,
     borderRadius: 20,
     marginTop: 25,
@@ -162,23 +163,10 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "white",
+    color: "#FFFFFF", // white button text
     textAlign: "center",
-  },
-  signUpContainer: {
-    alignItems: "center",
-    marginTop: 20,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  signUpText: {
-    color: "#0284C7", // Sky blue color
-    marginLeft: 5,
   },
   buttonDisabled: {
     opacity: 0.7,
-  }
+  },
 });
