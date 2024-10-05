@@ -115,7 +115,7 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#2E2E2E", // dark grey background
+    backgroundColor: "#2E2E2E",
     height: "100%",
     width: "100%",
   },
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     marginTop: 120,
   },
   headerText: {
-    color: "#C8B08C", // warm beige for header
+    color: "#C8B08C",
     fontWeight: "bold",
     letterSpacing: 3,
     fontSize: 45,
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   inputWrapper: {
-    backgroundColor: "#3B3B3B", // slightly lighter grey for input fields
+    backgroundColor: "#3B3B3B",
     padding: 16,
     borderRadius: 20,
     width: "100%",
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   input: {
-    color: "#E1E1E1", // soft grey for input text
+    color: "#E1E1E1",
   },
   buttonContainer: {
     width: "100%",
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   },
   button: {
     width: "100%",
-    backgroundColor: "#4A6E52", // dark green tone for the button
+    backgroundColor: "#4A6E52",
     padding: 12,
     borderRadius: 20,
     marginTop: 25,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#FFFFFF", // white button text
+    color: "#FFFFFF",
     textAlign: "center",
   },
   signUpContainer: {
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   signUpText: {
-    color: "#4A6E52", // same dark green for sign-up link
+    color: "#4A6E52",
     marginLeft: 5,
   },
   buttonDisabled: {

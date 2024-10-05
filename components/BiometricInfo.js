@@ -1,168 +1,289 @@
 import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    StyleSheet,
-    Alert,
-    ScrollView,
-  } from "react-native";
-  import { StatusBar } from "expo-status-bar";
-  import { useState } from "react";
-  import { getAuth } from "firebase/auth";
-  import { getDatabase, ref, set } from "firebase/database";
-  import { router } from 'expo-router';
-  import app, { database } from "../firebaseConfig";
-  
-  export default function BiometricInfo() {
-    const [loading, setLoading] = useState(false);
-    const [formData, setFormData] = useState({
-      age: '',
-      gender: '',
-      height: '',
-      weight: '',
-      activityLevel: '',
-      goals: '',
-      allergies: '',
-      medicalConditions: '',
-      diet: '',
-      timeConstraint: '',
-    });
-  
-    const formFields = [
-      { key: 'age', label: 'Age' },
-      { key: 'gender', label: 'Gender' },
-      { key: 'height', label: 'Height' },
-      { key: 'weight', label: 'Weight' },
-      { key: 'activityLevel', label: 'Activity Level' },
-      { key: 'goals', label: 'Goals' },
-      { key: 'allergies', label: 'Allergies' },
-      { key: 'medicalConditions', label: 'Medical Conditions' },
-      { key: 'diet', label: 'Diet' },
-      { key: 'timeConstraint', label: 'Time Constraint' },
-    ];
-  
-    const handleInputChange = (key, value) => {
-      setFormData(prevData => ({
-        ...prevData,
-        [key]: value
-      }));
-    };
-  
-    async function handleSubmit() {
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-      
-      setLoading(true);
-      const db = getDatabase(app);
-      
-      try {
-        await set(ref(db, 'users/' + user.uid + '/profile'), formData);
-        console.log("Profile data saved successfully");
-        router.replace('/home');
-      } catch (error) {
-        console.error("Error saving profile data:", error);
-        Alert.alert("Error", "Failed to save profile data. Please try again.");
-      } finally {
-        setLoading(false);
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ScrollView,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
+import { getAuth } from "firebase/auth";
+import { ref, set } from "firebase/database";
+import { router } from 'expo-router';
+import app, { database } from "../firebaseConfig";
+
+export default function BiometricInfo() {
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [formData, setFormData] = useState({
+    age: '',
+    gender: '',
+    height: '',
+    weight: '',
+    activityLevel: '',
+    goals: '',
+    allergies: '',
+    medicalConditions: '',
+    diet: '',
+    timeConstraint: '',
+  });
+
+  const formFields = [
+    { 
+      key: 'age', 
+      label: 'Age',
+      placeholder: 'Enter your age (e.g., 25)',
+      keyboardType: 'numeric',
+      validate: (value) => {
+        const age = parseInt(value);
+        if (!value) return 'Age is required';
+        if (isNaN(age) || age < 1 || age > 120) return 'Please enter a valid age between 1 and 120';
+        return '';
       }
+    },
+    { 
+      key: 'gender', 
+      label: 'Gender',
+      placeholder: 'Enter your gender',
+      validate: (value) => !value ? 'Gender is required' : ''
+    },
+    { 
+      key: 'height', 
+      label: 'Height (cm)',
+      placeholder: 'Enter your height in cm (e.g., 170)',
+      keyboardType: 'numeric',
+      validate: (value) => {
+        const height = parseInt(value);
+        if (!value) return 'Height is required';
+        if (isNaN(height) || height < 50 || height > 300) return 'Please enter a valid height between 50 and 300 cm';
+        return '';
+      }
+    },
+    { 
+      key: 'weight', 
+      label: 'Weight (kg)',
+      placeholder: 'Enter your weight in kg (e.g., 70)',
+      keyboardType: 'numeric',
+      validate: (value) => {
+        const weight = parseInt(value);
+        if (!value) return 'Weight is required';
+        if (isNaN(weight) || weight < 20 || weight > 500) return 'Please enter a valid weight between 20 and 500 kg';
+        return '';
+      }
+    },
+    { 
+      key: 'activityLevel', 
+      label: 'Activity Level',
+      placeholder: 'Enter your activity level (Sedentary/Light/Moderate/Very Active)',
+      validate: (value) => {
+        const validLevels = ['sedentary', 'light', 'moderate', 'very active'];
+        if (!value) return 'Activity level is required';
+        if (!validLevels.includes(value.toLowerCase())) return 'Please enter a valid activity level';
+        return '';
+      }
+    },
+    { 
+      key: 'goals', 
+      label: 'Goals',
+      placeholder: 'Enter your fitness/health goals',
+      validate: (value) => !value ? 'Goals are required' : ''
+    },
+    { 
+      key: 'allergies', 
+      label: 'Allergies',
+      placeholder: 'List any food allergies (or type "None")',
+      validate: () => '' // Optional field
+    },
+    { 
+      key: 'medicalConditions', 
+      label: 'Medical Conditions',
+      placeholder: 'List any relevant medical conditions (or type "None")',
+      validate: () => '' // Optional field
+    },
+    { 
+      key: 'diet', 
+      label: 'Diet',
+      placeholder: 'Enter your dietary preferences',
+      validate: (value) => !value ? 'Diet information is required' : ''
+    },
+    { 
+      key: 'timeConstraint', 
+      label: 'Time Constraint (hours/day)',
+      placeholder: 'Enter available time for cooking (e.g., 3.5)',
+      keyboardType: 'numeric',
+      validate: (value) => {
+        const time = parseInt(value);
+        if (!value) return 'Time constraint is required';
+        if (isNaN(time) || time < 0 || time > 24) return 'Please enter a valid time between 0 and 24 hours';
+        return '';
+      }
+    },
+  ];
+
+  const handleInputChange = (key, value) => {
+    setFormData(prevData => ({
+      ...prevData,
+      [key]: value
+    }));
+    // Clear error when user starts typing
+    if (errors[key]) {
+      setErrors(prevErrors => ({
+        ...prevErrors,
+        [key]: ''
+      }));
     }
-  
-    return (
-      <ScrollView style={styles.container}>
-        <StatusBar style="light" hidden={true} />
-        <View style={styles.innerContainer}>
-          <View style={styles.header}>
-            <Text style={styles.headerText}>Profile Info</Text>
-          </View>
-          <View style={styles.inputContainer}>
-            {formFields.map((field) => (
-              <View key={field.key} style={styles.fieldContainer}>
-                <Text style={styles.fieldLabel}>{field.label}</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    placeholder={`Enter ${field.label.toLowerCase()}`}
-                    placeholderTextColor="#A3A3A3"
-                    style={styles.input}
-                    onChangeText={(value) => handleInputChange(field.key, value)}
-                    value={formData[field.key]}
-                  />
-                </View>
+  };
+
+  const validateForm = () => {
+    let newErrors = {};
+    let isValid = true;
+
+    formFields.forEach(field => {
+      const error = field.validate(formData[field.key]);
+      if (error) {
+        newErrors[field.key] = error;
+        isValid = false;
+      }
+    });
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  async function handleSubmit() {
+    if (!validateForm()) {
+      Alert.alert("Error", "Please correct the errors in the form");
+      return;
+    }
+
+    const auth = getAuth(app);
+    const user = auth.currentUser;
+
+    setLoading(true);
+    
+    try {
+      const userProfileRef = ref(database, `users/${user.uid}/profile`);
+      await set(userProfileRef, formData);
+      console.log("Profile data saved successfully");
+      router.replace('/home');
+    } catch (error) {
+      console.error("Error saving profile data:", error);
+      if (error.code === 'PERMISSION_DENIED') {
+        Alert.alert("Error", "You don't have permission to save profile data. Please make sure you're logged in.");
+      } else {
+        Alert.alert("Error", "Failed to save profile data. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <StatusBar style="light" hidden={true} />
+      <View style={styles.innerContainer}>
+        <View style={styles.header}>
+          <Text style={styles.headerText}>Profile Info</Text>
+        </View>
+        <View style={styles.inputContainer}>
+          {formFields.map((field) => (
+            <View key={field.key} style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>{field.label}</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  placeholder={field.placeholder}
+                  placeholderTextColor="#A3A3A3"
+                  style={styles.input}
+                  onChangeText={(value) => handleInputChange(field.key, value)}
+                  value={formData[field.key]}
+                  keyboardType={field.keyboardType || 'default'}
+                />
               </View>
-            ))}
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleSubmit}
-                disabled={loading}
-              >
-                <Text style={styles.buttonText}>
-                  {loading ? 'Saving...' : 'Save Profile'}
-                </Text>
-              </TouchableOpacity>
+              {errors[field.key] ? (
+                <Text style={styles.errorText}>{errors[field.key]}</Text>
+              ) : null}
             </View>
+          ))}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity 
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleSubmit}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? 'Saving...' : 'Save Profile'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
-    );
-  }
-  
-  const styles = StyleSheet.create({
-    container: {
-      backgroundColor: "#2E2E2E",
-      flex: 1,
-    },
-    innerContainer: {
-      padding: 20,
-      paddingBottom: 40,
-    },
-    header: {
-      alignItems: "center",
-      marginTop: 60,
-      marginBottom: 30,
-    },
-    headerText: {
-      color: "#C8B08C",
-      fontWeight: "bold",
-      letterSpacing: 3,
-      fontSize: 45,
-    },
-    inputContainer: {
-      marginHorizontal: 16,
-    },
-    fieldContainer: {
-      marginBottom: 20,
-    },
-    fieldLabel: {
-      color: "#C8B08C",
-      fontSize: 18,
-      marginBottom: 8,
-    },
-    inputWrapper: {
-      backgroundColor: "#3B3B3B",
-      padding: 16,
-      borderRadius: 20,
-      borderColor: "#5B5B5B",
-      borderWidth: 1,
-    },
-    input: {
-      color: "#E1E1E1",
-    },
-    buttonContainer: {
-      marginTop: 20,
-    },
-    button: {
-      backgroundColor: "#4A6E52",
-      padding: 12,
-      borderRadius: 20,
-    },
-    buttonText: {
-      fontSize: 22,
-      fontWeight: "bold",
-      color: "#FFFFFF",
-      textAlign: "center",
-    },
-    buttonDisabled: {
-      opacity: 0.7,
-    },
-  });
+      </View>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: "#2E2E2E",
+    flex: 1,
+  },
+  innerContainer: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  header: {
+    alignItems: "center",
+    marginTop: 60,
+    marginBottom: 30,
+  },
+  headerText: {
+    color: "#C8B08C",
+    fontWeight: "bold",
+    letterSpacing: 3,
+    fontSize: 45,
+  },
+  inputContainer: {
+    marginHorizontal: 16,
+  },
+  fieldContainer: {
+    marginBottom: 20,
+  },
+  fieldLabel: {
+    color: "#C8B08C",
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    backgroundColor: "#3B3B3B",
+    padding: 16,
+    borderRadius: 20,
+    borderColor: "#5B5B5B",
+    borderWidth: 1,
+  },
+  input: {
+    color: "#E1E1E1",
+  },
+  buttonContainer: {
+    marginTop: 20,
+  },
+  button: {
+    backgroundColor: "#4A6E52",
+    padding: 12,
+    borderRadius: 20,
+  },
+  buttonText: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+    textAlign: "center",
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  errorText: {
+    color: "#FF6B6B",
+    fontSize: 14,
+    marginTop: 5,
+  },
+});
