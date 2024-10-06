@@ -119,7 +119,7 @@ export default function MealPlanner() {
       // Save nutritional values separately
       const nutritionRef = ref(database, `users/${user.uid}/nutritionalValues/${date}`);
       await set(nutritionRef, nutritionTotals);
-      
+
       Alert.alert("Success", "Meal plan saved successfully!");
     } catch (error) {
       console.error("Error saving meal plan:", error);
@@ -140,8 +140,8 @@ export default function MealPlanner() {
   return (
     <View style={styles.container}>
       <View>
-        <Pressable style={styles.addButton} onPress={() => router.replace("/home")}>
-          <ArrowBigLeftDash />
+        <Pressable style={styles.backButton} onPress={() => router.replace("/home")}>
+          <ArrowBigLeftDash color="#C8B08C" />
         </Pressable>
       </View>
       <ScrollView style={styles.container}>
@@ -226,6 +226,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#2E2E2E',
+  },
+  backButton: {
+    padding: 15,
+    marginTop: 40,
   },
   title: {
     fontSize: 28,
