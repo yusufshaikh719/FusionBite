@@ -119,7 +119,7 @@ export default function MealPlanner() {
       // Save nutritional values separately
       const nutritionRef = ref(database, `users/${user.uid}/nutritionalValues/${date}`);
       await set(nutritionRef, nutritionTotals);
-
+      
       Alert.alert("Success", "Meal plan saved successfully!");
     } catch (error) {
       console.error("Error saving meal plan:", error);

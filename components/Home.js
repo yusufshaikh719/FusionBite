@@ -1,135 +1,115 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar } from 'lucide-react';
+import { ref, onValue } from 'firebase/database';
+import app, { database } from '../firebaseConfig';
+import { getAuth } from 'firebase/auth';
 
 export default function Home() {
-  const [timeFrame, setTimeFrame] = useState('day');
-  
-  const nutrientData = {
-    day: [
-      { name: 'Protein', amount: 65, goal: 80 },
-      { name: 'Carbs', amount: 200, goal: 250 },
-      { name: 'Fat', amount: 55, goal: 65 },
-      { name: 'Fiber', amount: 20, goal: 25 },
-    ],
-    week: [
-      { name: 'Protein', amount: 455, goal: 560 },
-      { name: 'Carbs', amount: 1400, goal: 1750 },
-      { name: 'Fat', amount: 385, goal: 455 },
-      { name: 'Fiber', amount: 140, goal: 175 },
-    ],
-    month: [
-      { name: 'Protein', amount: 1950, goal: 2400 },
-      { name: 'Carbs', amount: 6000, goal: 7500 },
-      { name: 'Fat', amount: 1650, goal: 1950 },
-      { name: 'Fiber', amount: 600, goal: 750 },
-    ],
-  };
+  const [nutritionData, setNutritionData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const vitaminsData = {
-    day: [
-      { name: 'Vit A', amount: 700, goal: 900 },
-      { name: 'Vit C', amount: 65, goal: 90 },
-      { name: 'Vit D', amount: 15, goal: 20 },
-      { name: 'Iron', amount: 14, goal: 18 },
-    ],
-    week: [
-      { name: 'Vit A', amount: 4900, goal: 6300 },
-      { name: 'Vit C', amount: 455, goal: 630 },
-      { name: 'Vit D', amount: 105, goal: 140 },
-      { name: 'Iron', amount: 98, goal: 126 },
-    ],
-    month: [
-      { name: 'Vit A', amount: 21000, goal: 27000 },
-      { name: 'Vit C', amount: 1950, goal: 2700 },
-      { name: 'Vit D', amount: 450, goal: 600 },
-      { name: 'Iron', amount: 420, goal: 540 },
-    ],
-  };
+  useEffect(() => {
+    const auth = getAuth(app);
+    const user = auth.currentUser;
 
-  const recentRecipes = [
-    { id: 1, name: 'Grilled Chicken Salad', time: '25 mins' },
-    { id: 2, name: 'Quinoa Buddha Bowl', time: '30 mins' },
-    { id: 3, name: 'Salmon with Roasted Veggies', time: '35 mins' },
-  ];
+    if (!user) {
+      setError('User not authenticated');
+      setLoading(false);
+      return;
+    }
+
+    const today = new Date();
+    const currentDate = today.toISOString().split('T')[0];
+
+    const nutritionRef = ref(database, `users/${user.uid}/nutritionalValues/${currentDate}`);
+    
+    const unsubscribe = onValue(nutritionRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setNutritionData(data);
+        setError(null);
+      } else {
+        setNutritionData({
+          calories: 0,
+          carbs: 0,
+          fat: 0,
+          fiber: 0,
+          protein: 0
+        });
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error('Error fetching nutrition data:', error);
+      setError('Failed to fetch nutrition data');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const renderBar = (value, goal, width) => {
-    const percentage = (value / goal) * 100;
+    const percentage = Math.min((value / goal) * 100, 100);
     return (
       <View style={styles.barContainer}>
-        <View style={[styles.bar, { width: `${percentage}%`, maxWidth: '100%' }]} />
+        <View style={[styles.bar, { width: `${percentage}%` }]} />
         <View style={[styles.goalBar, { width: `${width}%` }]} />
       </View>
     );
   };
 
-  const renderDataSection = (data, title) => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.chartContainer}>
-        {data[timeFrame].map((item, index) => (
-          <View key={index} style={styles.dataRow}>
-            <View style={styles.labelContainer}>
-              <Text style={styles.label}>{item.name}</Text>
-              <Text style={styles.value}>{item.amount}/{item.goal}</Text>
+  const renderDataSection = (data, title) => {
+    const goals = {
+      calories: 2000,
+      carbs: 300,
+      fat: 65,
+      fiber: 25,
+      protein: 50
+    };
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <View style={styles.chartContainer}>
+          {Object.entries(data).map(([key, value], index) => (
+            <View key={index} style={styles.dataRow}>
+              <View style={styles.labelContainer}>
+                <Text style={styles.label}>{key.charAt(0).toUpperCase() + key.slice(1)}</Text>
+                <Text style={styles.value}>{Math.round(value)}/{goals[key]}</Text>
+              </View>
+              {renderBar(value, goals[key], 100)}
             </View>
-            {renderBar(item.amount, item.goal, 100)}
-          </View>
-        ))}
+          ))}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#C8B08C" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerText}>FusionBite</Text>
       </View>
-      
-      <View style={styles.timeFrameSelector}>
-        {['day', 'week', 'month'].map((time) => (
-          <Pressable 
-            key={time}
-            style={[styles.timeButton, timeFrame === time && styles.activeTimeButton]}
-            onPress={() => setTimeFrame(time)}
-          >
-            <Text style={[styles.timeButtonText, timeFrame === time && styles.activeTimeButtonText]}>
-              {time.charAt(0).toUpperCase() + time.slice(1)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
 
-      {renderDataSection(nutrientData, 'Nutrient Intake')}
-      {renderDataSection(vitaminsData, 'Vitamins & Minerals')}
-
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Recipes</Text>
-          <Pressable onPress={() => router.replace('/mealmanagement')}>
-            <Text style={styles.seeAllText}>See All</Text>
-          </Pressable>
-        </View>
-        {recentRecipes.map(recipe => (
-          <Pressable 
-            key={recipe.id} 
-            style={styles.recipeCard}
-            onPress={() => router.push({
-              pathname: '/recipe-details',
-              params: { recipeId: recipe.id }
-            })}
-          >
-            <View style={styles.recipeInfo}>
-              <Text style={styles.recipeName}>{recipe.name}</Text>
-              <View style={styles.recipeTimeContainer}>
-                <Clock size={16} color="#C8B08C" />
-                <Text style={styles.recipeTime}>{recipe.time}</Text>
-              </View>
-            </View>
-          </Pressable>
-        ))}
-      </View>
+      {nutritionData && renderDataSection(nutritionData, 'Daily Nutrient Intake')}
 
       <Pressable 
         style={styles.planningButton}
@@ -147,6 +127,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#2E2E2E',
   },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#2E2E2E',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: '#2E2E2E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 18,
+    textAlign: 'center',
+  },
   header: {
     alignItems: 'center',
     paddingTop: 60,
@@ -158,37 +156,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 2,
   },
-  timeFrameSelector: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  timeButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    marginHorizontal: 5,
-    borderRadius: 15,
-    backgroundColor: '#3B3B3B',
-  },
-  activeTimeButton: {
-    backgroundColor: '#4A6E52',
-  },
-  timeButtonText: {
-    color: '#A3A3A3',
-    fontSize: 16,
-  },
-  activeTimeButtonText: {
-    color: '#FFFFFF',
-  },
   section: {
     marginHorizontal: 20,
     marginBottom: 25,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
   },
   sectionTitle: {
     color: '#C8B08C',
@@ -233,34 +203,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#C8B08C',
     opacity: 0.3,
-  },
-  seeAllText: {
-    color: '#4A6E52',
-    fontSize: 16,
-  },
-  recipeCard: {
-    backgroundColor: '#3B3B3B',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 10,
-  },
-  recipeInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  recipeName: {
-    color: '#E1E1E1',
-    fontSize: 18,
-  },
-  recipeTimeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  recipeTime: {
-    color: '#C8B08C',
-    fontSize: 14,
-    marginLeft: 5,
   },
   planningButton: {
     backgroundColor: '#4A6E52',
