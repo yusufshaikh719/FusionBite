@@ -9,11 +9,13 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  Pressable, 
 } from 'react-native';
 import { getAuth } from 'firebase/auth';
 import { ref, get, set, push } from 'firebase/database';
 import app, { database } from '../firebaseConfig';
-import { ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { ArrowBigLeftDash, ChevronDown, ChevronUp, Plus, X } from 'lucide-react';
+import { router } from 'expo-router';
 
 export default function MealManagement() {
   const [meals, setMeals] = useState({});
@@ -178,149 +180,156 @@ export default function MealManagement() {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>My Meals</Text>
-      
-      <TouchableOpacity 
-        style={styles.addButton}
-        onPress={() => setModalVisible(true)}
-      >
-        <Plus size={24} color="#FFFFFF" />
-        <Text style={styles.addButtonText}>Add New Meal</Text>
-      </TouchableOpacity>
-
-      {Object.entries(meals).map(([id, meal]) => (
-        <TouchableOpacity
-          key={id}
-          style={styles.mealCard}
-          onPress={() => setExpandedMeal(expandedMeal === id ? null : id)}
-        >
-          <View style={styles.mealHeader}>
-            <Text style={styles.mealName}>{meal.name}</Text>
-            {expandedMeal === id ? (
-              <ChevronUp size={24} color="#C8B08C" />
-            ) : (
-              <ChevronDown size={24} color="#C8B08C" />
-            )}
-          </View>
-          
-          {expandedMeal === id && (
-            <View style={styles.mealDetails}>
-              <View style={styles.nutritionInfo}>
-                {Object.entries(meal.nutrition).map(([nutrient, value]) => (
-                  <Text key={nutrient} style={styles.nutritionText}>
-                    {nutrient.charAt(0).toUpperCase() + nutrient.slice(1)}: 
-                    {' '}{Math.round(value)}{nutrient === 'calories' ? 'kcal' : 'g'}
-                  </Text>
-                ))}
-              </View>
-              
-              <Text style={styles.sectionTitle}>Ingredients:</Text>
-              {meal.ingredients.map((ingredient, index) => (
-                <Text key={index} style={styles.ingredient}>• {ingredient}</Text>
-              ))}
-              
-              <Text style={styles.sectionTitle}>Directions:</Text>
-              {meal.directions.map((direction, index) => (
-                <Text key={index} style={styles.direction}>{index + 1}. {direction}</Text>
-              ))}
-            </View>
-          )}
-        </TouchableOpacity>
-      ))}
-
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent={true}
-      >
-        <View style={styles.modalContainer}>
-          <ScrollView style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add New Meal</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X size={24} color="#C8B08C" />
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              style={styles.input}
-              placeholder="Meal Name"
-              placeholderTextColor="#A3A3A3"
-              value={newMeal.name}
-              onChangeText={(text) => setNewMeal({ ...newMeal, name: text })}
-            />
-
-            <Text style={styles.modalSectionTitle}>Nutrition Information:</Text>
-            <View style={styles.nutritionInputs}>
-              {Object.entries(newMeal.nutrition).map(([nutrient, value]) => (
-                <View key={nutrient} style={styles.nutritionInput}>
-                  <Text style={styles.nutritionLabel}>
-                    {nutrient.charAt(0).toUpperCase() + nutrient.slice(1)}:
-                  </Text>
-                  <TextInput
-                    style={styles.nutritionValue}
-                    placeholder="0"
-                    placeholderTextColor="#A3A3A3"
-                    keyboardType="numeric"
-                    value={value}
-                    onChangeText={(text) => handleNutritionChange(nutrient, text)}
-                  />
-                </View>
-              ))}
-            </View>
-
-            <Text style={styles.modalSectionTitle}>Ingredients:</Text>
-            {newMeal.ingredients.map((ingredient, index) => (
-              <View key={index} style={styles.listItemContainer}>
-                <TextInput
-                  style={styles.listItemInput}
-                  placeholder={`Ingredient ${index + 1}`}
-                  placeholderTextColor="#A3A3A3"
-                  value={ingredient}
-                  onChangeText={(text) => handleIngredientChange(text, index)}
-                />
-                <TouchableOpacity 
-                  style={styles.removeButton}
-                  onPress={() => removeIngredient(index)}
-                >
-                  <X size={20} color="#FF6B6B" />
-                </TouchableOpacity>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.addItemButton} onPress={addIngredientField}>
-              <Text style={styles.addItemButtonText}>Add Ingredient</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.modalSectionTitle}>Directions:</Text>
-            {newMeal.directions.map((direction, index) => (
-              <View key={index} style={styles.listItemContainer}>
-                <TextInput
-                  style={styles.listItemInput}
-                  placeholder={`Step ${index + 1}`}
-                  placeholderTextColor="#A3A3A3"
-                  value={direction}
-                  onChangeText={(text) => handleDirectionChange(text, index)}
-                />
-                <TouchableOpacity 
-                  style={styles.removeButton}
-                  onPress={() => removeDirection(index)}
-                >
-                  <X size={20} color="#FF6B6B" />
-                </TouchableOpacity>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.addItemButton} onPress={addDirectionField}>
-              <Text style={styles.addItemButtonText}>Add Direction</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.saveButton} onPress={saveMeal}>
-              <Text style={styles.saveButtonText}>Save Meal</Text>
-            </TouchableOpacity>
-          </ScrollView>
+    <View style={styles.container}>
+        <View>
+            <Pressable style={styles.addButton} onPress={() => router.replace("/home")}>
+                <ArrowBigLeftDash />
+            </Pressable>
         </View>
-      </Modal>
-    </ScrollView>
+        <ScrollView style={styles.container}>
+        <Text style={styles.title}>My Meals</Text>
+        
+        <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setModalVisible(true)}
+        >
+            <Plus size={24} color="#FFFFFF" />
+            <Text style={styles.addButtonText}>Add New Meal</Text>
+        </TouchableOpacity>
+
+        {Object.entries(meals).map(([id, meal]) => (
+            <TouchableOpacity
+            key={id}
+            style={styles.mealCard}
+            onPress={() => setExpandedMeal(expandedMeal === id ? null : id)}
+            >
+            <View style={styles.mealHeader}>
+                <Text style={styles.mealName}>{meal.name}</Text>
+                {expandedMeal === id ? (
+                <ChevronUp size={24} color="#C8B08C" />
+                ) : (
+                <ChevronDown size={24} color="#C8B08C" />
+                )}
+            </View>
+            
+            {expandedMeal === id && (
+                <View style={styles.mealDetails}>
+                <View style={styles.nutritionInfo}>
+                    {Object.entries(meal.nutrition).map(([nutrient, value]) => (
+                    <Text key={nutrient} style={styles.nutritionText}>
+                        {nutrient.charAt(0).toUpperCase() + nutrient.slice(1)}: 
+                        {' '}{Math.round(value)}{nutrient === 'calories' ? 'kcal' : 'g'}
+                    </Text>
+                    ))}
+                </View>
+                
+                <Text style={styles.sectionTitle}>Ingredients:</Text>
+                {meal.ingredients.map((ingredient, index) => (
+                    <Text key={index} style={styles.ingredient}>• {ingredient}</Text>
+                ))}
+                
+                <Text style={styles.sectionTitle}>Directions:</Text>
+                {meal.directions.map((direction, index) => (
+                    <Text key={index} style={styles.direction}>{index + 1}. {direction}</Text>
+                ))}
+                </View>
+            )}
+            </TouchableOpacity>
+        ))}
+
+        <Modal
+            visible={modalVisible}
+            animationType="slide"
+            transparent={true}
+        >
+            <View style={styles.modalContainer}>
+            <ScrollView style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Add New Meal</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                    <X size={24} color="#C8B08C" />
+                </TouchableOpacity>
+                </View>
+
+                <TextInput
+                style={styles.input}
+                placeholder="Meal Name"
+                placeholderTextColor="#A3A3A3"
+                value={newMeal.name}
+                onChangeText={(text) => setNewMeal({ ...newMeal, name: text })}
+                />
+
+                <Text style={styles.modalSectionTitle}>Nutrition Information:</Text>
+                <View style={styles.nutritionInputs}>
+                {Object.entries(newMeal.nutrition).map(([nutrient, value]) => (
+                    <View key={nutrient} style={styles.nutritionInput}>
+                    <Text style={styles.nutritionLabel}>
+                        {nutrient.charAt(0).toUpperCase() + nutrient.slice(1)}:
+                    </Text>
+                    <TextInput
+                        style={styles.nutritionValue}
+                        placeholder="0"
+                        placeholderTextColor="#A3A3A3"
+                        keyboardType="numeric"
+                        value={value}
+                        onChangeText={(text) => handleNutritionChange(nutrient, text)}
+                    />
+                    </View>
+                ))}
+                </View>
+
+                <Text style={styles.modalSectionTitle}>Ingredients:</Text>
+                {newMeal.ingredients.map((ingredient, index) => (
+                <View key={index} style={styles.listItemContainer}>
+                    <TextInput
+                    style={styles.listItemInput}
+                    placeholder={`Ingredient ${index + 1}`}
+                    placeholderTextColor="#A3A3A3"
+                    value={ingredient}
+                    onChangeText={(text) => handleIngredientChange(text, index)}
+                    />
+                    <TouchableOpacity 
+                    style={styles.removeButton}
+                    onPress={() => removeIngredient(index)}
+                    >
+                    <X size={20} color="#FF6B6B" />
+                    </TouchableOpacity>
+                </View>
+                ))}
+                <TouchableOpacity style={styles.addItemButton} onPress={addIngredientField}>
+                <Text style={styles.addItemButtonText}>Add Ingredient</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.modalSectionTitle}>Directions:</Text>
+                {newMeal.directions.map((direction, index) => (
+                <View key={index} style={styles.listItemContainer}>
+                    <TextInput
+                    style={styles.listItemInput}
+                    placeholder={`Step ${index + 1}`}
+                    placeholderTextColor="#A3A3A3"
+                    value={direction}
+                    onChangeText={(text) => handleDirectionChange(text, index)}
+                    />
+                    <TouchableOpacity 
+                    style={styles.removeButton}
+                    onPress={() => removeDirection(index)}
+                    >
+                    <X size={20} color="#FF6B6B" />
+                    </TouchableOpacity>
+                </View>
+                ))}
+                <TouchableOpacity style={styles.addItemButton} onPress={addDirectionField}>
+                <Text style={styles.addItemButtonText}>Add Direction</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.saveButton} onPress={saveMeal}>
+                <Text style={styles.saveButtonText}>Save Meal</Text>
+                </TouchableOpacity>
+            </ScrollView>
+            </View>
+        </Modal>
+        </ScrollView>
+    </View>
   );
 }
 
