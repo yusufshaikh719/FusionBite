@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { Calendar, ChefHat } from 'lucide-react';
+import { Calendar, ChefHat, User, LogOut, Settings } from 'lucide-react';
 import { ref, onValue, push, set } from 'firebase/database';
 import app, { database } from '../firebaseConfig';
 import { getAuth } from 'firebase/auth';
@@ -28,6 +28,7 @@ export default function Home() {
   const [generatingMeal, setGeneratingMeal] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [mealSaved, setMealSaved] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     const auth = getAuth(app);
@@ -74,6 +75,17 @@ export default function Home() {
       unsubscribeNutrition();
     };
   }, []);
+
+  const handleSignOut = async () => {
+    try {
+      const auth = getAuth();
+      await auth.signOut();
+      router.replace('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      Alert.alert('Error', 'Failed to sign out. Please try again.');
+    }
+  };
 
   // Keep existing renderBar and renderDataSection functions
   const renderBar = (value, goal, width) => {
@@ -143,28 +155,6 @@ export default function Home() {
       return null;
     }
   };
-
-  // const saveMealToDatabase = async () => {
-  //   try {
-  //     const auth = getAuth();
-  //     const user = auth.currentUser;
-      
-  //     if (!user || !suggestedMeal) {
-  //       throw new Error('Missing required data');
-  //     }
-
-  //     // Save the suggested meal to the database
-  //     const mealsRef = ref(database, `users/${user.uid}/meals`);
-  //     const newMealRef = push(mealsRef);
-  //     await set(newMealRef, suggestedMeal);
-
-  //     setMealSaved(true);
-  //   } catch (error) {
-  //     console.error('Error saving meal:', error);
-  //     setError('Failed to save meal');
-  //   }
-  // };
-
   
 const saveMealToDatabase = async () => {
   try {
@@ -306,154 +296,6 @@ const saveMealToDatabase = async () => {
     }
   };
 
-  // const generateMealSuggestion = async () => {
-  //   setGeneratingMeal(true);
-  //   setSuggestedMeal(null);
-  //   setMealSaved(false);
-
-  //   try {
-  //     // ... (keep existing meal generation logic)
-  //     const auth = getAuth();
-  //     const user = auth.currentUser;
-      
-  //     if (!user || !userProfile) {
-  //       throw new Error('Missing required data');
-  //     }
-
-  //     const remainingNutrients = calculateRemainingNutrients();
-  //     const userDiet = userProfile.diet.toLowerCase();
-  //     const mealSize = remainingNutrients.calories > 500 ? 'main' : 'snack';
-
-  //     // Select ingredients based on user's diet and remaining nutrients
-  //     let proteinOptions = DIET_INGREDIENTS[userDiet] || DIET_INGREDIENTS.omnivore;
-  //     let selectedIngredients = [];
-      
-  //     // Add a protein
-  //     const protein = proteinOptions[Math.floor(Math.random() * proteinOptions.length)];
-  //     const proteinData = await searchFoodItem(protein);
-  //     if (proteinData) {
-  //       selectedIngredients.push({
-  //         name: proteinData.description,
-  //         amount: 100,
-  //         unit: 'g',
-  //         nutrition: {
-  //           calories: proteinData.foodNutrients.find(n => n.nutrientName === 'Energy')?.value || 0,
-  //           protein: proteinData.foodNutrients.find(n => n.nutrientName === 'Protein')?.value || 0,
-  //           carbs: proteinData.foodNutrients.find(n => n.nutrientName === 'Carbohydrates')?.value || 0,
-  //           fat: proteinData.foodNutrients.find(n => n.nutrientName === 'Total fat')?.value || 0,
-  //           fiber: proteinData.foodNutrients.find(n => n.nutrientName === 'Fiber')?.value || 0,
-  //         }
-  //       });
-  //     }
-
-  //     // Add a vegetable
-  //     const veggie = COMMON_VEGGIES[Math.floor(Math.random() * COMMON_VEGGIES.length)];
-  //     const veggieData = await searchFoodItem(veggie);
-  //     if (veggieData) {
-  //       selectedIngredients.push({
-  //         name: veggieData.description,
-  //         amount: 100,
-  //         unit: 'g',
-  //         nutrition: {
-  //           calories: veggieData.foodNutrients.find(n => n.nutrientName === 'Energy')?.value || 0,
-  //           protein: veggieData.foodNutrients.find(n => n.nutrientName === 'Protein')?.value || 0,
-  //           carbs: veggieData.foodNutrients.find(n => n.nutrientName === 'Carbohydrates')?.value || 0,
-  //           fat: veggieData.foodNutrients.find(n => n.nutrientName === 'Total fat')?.value || 0,
-  //           fiber: veggieData.foodNutrients.find(n => n.nutrientName === 'Fiber')?.value || 0,
-  //         }
-  //       });
-  //     }
-
-  //     // Add a carb if it's a main meal
-  //     if (mealSize === 'main') {
-  //       const carb = COMMON_CARBS[Math.floor(Math.random() * COMMON_CARBS.length)];
-  //       const carbData = await searchFoodItem(carb);
-  //       if (carbData) {
-  //         selectedIngredients.push({
-  //           name: carbData.description,
-  //           amount: 100,
-  //           unit: 'g',
-  //           nutrition: {
-  //             calories: carbData.foodNutrients.find(n => n.nutrientName === 'Energy')?.value || 0,
-  //             protein: carbData.foodNutrients.find(n => n.nutrientName === 'Protein')?.value || 0,
-  //             carbs: carbData.foodNutrients.find(n => n.nutrientName === 'Carbohydrates')?.value || 0,
-  //             fat: carbData.foodNutrients.find(n => n.nutrientName === 'Total fat')?.value || 0,
-  //             fiber: carbData.foodNutrients.find(n => n.nutrientName === 'Fiber')?.value || 0,
-  //           }
-  //         });
-  //       }
-  //     }
-
-  //     // Calculate total nutrition
-  //     const totalNutrition = selectedIngredients.reduce((total, ingredient) => ({
-  //       calories: total.calories + (ingredient.nutrition.calories || 0),
-  //       protein: total.protein + (ingredient.nutrition.protein || 0),
-  //       carbs: total.carbs + (ingredient.nutrition.carbs || 0),
-  //       fat: total.fat + (ingredient.nutrition.fat || 0),
-  //       fiber: total.fiber + (ingredient.nutrition.fiber || 0),
-  //     }), {
-  //       calories: 0,
-  //       protein: 0,
-  //       carbs: 0,
-  //       fat: 0,
-  //       fiber: 0,
-  //     });
-
-  //     // Generate meal name
-  //     const mealName = `${selectedIngredients[0].name.split(',')[0]} with ${selectedIngredients[1].name.split(',')[0]}${selectedIngredients[2] ? ` and ${selectedIngredients[2].name.split(',')[0]}` : ''}`;
-
-  //     // Generate simple directions
-  //     const directions = [
-  //       `Prepare ${selectedIngredients[0].name.split(',')[0]}`,
-  //       `Cook ${selectedIngredients[1].name.split(',')[0]}`,
-  //       selectedIngredients[2] ? `Prepare ${selectedIngredients[2].name.split(',')[0]}` : null,
-  //       "Combine all ingredients and serve",
-  //     ].filter(Boolean);
-
-  //     const suggestedMeal = {
-  //       name: mealName,
-  //       ingredients: selectedIngredients,
-  //       directions,
-  //       nutrition: totalNutrition,
-  //     };
-
-  //     setSuggestedMeal(suggestedMeal);
-  //   } catch (error) {
-  //     console.error('Error generating meal suggestion:', error);
-  //     setError('Failed to generate meal suggestion');
-  //   } finally {
-  //     setGeneratingMeal(false);
-  //   }
-  // };
-
-  // const generateMealSuggestion = async () => {
-  //   setGeneratingMeal(true);
-  //   setSuggestedMeal(null);
-
-  //   try {
-      
-
-  //     const suggestedMeal = {
-  //       name: mealName,
-  //       ingredients: selectedIngredients,
-  //       directions,
-  //       nutrition: totalNutrition,
-  //     };
-
-  //     // Save the suggested meal to the database
-  //     const mealsRef = ref(database, `users/${user.uid}/meals`);
-  //     const newMealRef = push(mealsRef);
-  //     await set(newMealRef, suggestedMeal);
-
-  //     setSuggestedMeal(suggestedMeal);
-  //   } catch (error) {
-  //     console.error('Error generating meal suggestion:', error);
-  //     setError('Failed to generate meal suggestion');
-  //   } finally {
-  //     setGeneratingMeal(false);
-  //   }
-  // };
-
   const renderMealSuggester = () => (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Meal Suggester</Text>
@@ -527,12 +369,47 @@ const saveMealToDatabase = async () => {
     </View>
   );
 
-  // In the return statement, add renderMealSuggester between nutritionData section and planningButton
+  const headerWithProfile = (
+    <View style={styles.headerContainer}>
+      <Text style={styles.headerText}>FusionBite</Text>
+      <Pressable 
+        style={styles.profileIcon}
+        onPress={() => setShowDropdown(!showDropdown)}
+      >
+        <User color="#C8B08C" size={24} />
+      </Pressable>
+    </View>
+  );
+
+  const dropdownMenu = showDropdown && (
+    <View style={styles.dropdownContainer}>
+      <Pressable 
+        style={styles.dropdownItem}
+        onPress={() => {
+          setShowDropdown(false);
+          router.push('/biometricinfo');
+        }}
+      >
+        <Settings size={20} color="#C8B08C" />
+        <Text style={styles.dropdownText}>Edit Profile</Text>
+      </Pressable>
+      <Pressable 
+        style={[styles.dropdownItem, styles.lastDropdownItem]}
+        onPress={() => {
+          setShowDropdown(false);
+          handleSignOut();
+        }}
+      >
+        <LogOut size={20} color="#FF6B6B" />
+        <Text style={[styles.dropdownText, { color: '#FF6B6B' }]}>Sign Out</Text>
+      </Pressable>
+    </View>
+  );
+
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerText}>FusionBite</Text>
-      </View>
+      {headerWithProfile}
+      {dropdownMenu}
 
       {nutritionData && renderDataSection(nutritionData, 'Daily Nutrient Intake')}
       
@@ -737,5 +614,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 3,
     marginLeft: 10,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+  },
+  profileIcon: {
+    padding: 8,
+  },
+  dropdownContainer: {
+    position: 'absolute',
+    top: 110,
+    right: 20,
+    backgroundColor: '#3B3B3B',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#5B5B5B',
+    zIndex: 1000,
+    elevation: 5,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#5B5B5B',
+  },
+  dropdownText: {
+    color: '#E1E1E1',
+    marginLeft: 10,
+    fontSize: 16,
+  },
+  lastDropdownItem: {
+    borderBottomWidth: 0,
   },
 });
