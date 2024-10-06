@@ -1,15 +1,8 @@
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from "react-native";
-import { StatusBar } from "expo-status-bar";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, } from "react-native";
 import { useState } from "react";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { StatusBar } from "expo-status-bar";
 import { router } from 'expo-router';
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import app from "../firebaseConfig";
 
 export default function SignUp() {
@@ -93,7 +86,7 @@ export default function SignUp() {
             />
           </View>
           <View style={styles.buttonContainer}>
-            <TouchableOpacity 
+            <Pressable 
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleSignUp}
               disabled={loading}
@@ -101,7 +94,7 @@ export default function SignUp() {
               <Text style={styles.buttonText}>
                 {loading ? 'Creating Account...' : 'Sign Up'}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -111,7 +104,7 @@ export default function SignUp() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#2E2E2E", // dark grey background for consistency
+    backgroundColor: "#2E2E2E",
     height: "100%",
     width: "100%",
   },
@@ -127,7 +120,7 @@ const styles = StyleSheet.create({
     marginTop: 130,
   },
   headerText: {
-    color: "#C8B08C", // warm beige header text
+    color: "#C8B08C",
     fontWeight: "bold",
     letterSpacing: 3,
     fontSize: 45,
@@ -138,7 +131,7 @@ const styles = StyleSheet.create({
     marginTop: 45,
   },
   inputWrapper: {
-    backgroundColor: "#3B3B3B", // consistent grey for inputs
+    backgroundColor: "#3B3B3B",
     padding: 16,
     borderRadius: 20,
     width: "100%",
@@ -147,7 +140,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   input: {
-    color: "#E1E1E1", // soft grey input text
+    color: "#E1E1E1",
   },
   buttonContainer: {
     width: "100%",
@@ -155,7 +148,7 @@ const styles = StyleSheet.create({
   },
   button: {
     width: "100%",
-    backgroundColor: "#4A6E52", // dark green tone for the button
+    backgroundColor: "#4A6E52",
     padding: 12,
     borderRadius: 20,
     marginTop: 25,
@@ -163,7 +156,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#FFFFFF", // white button text
+    color: "#FFFFFF",
     textAlign: "center",
   },
   buttonDisabled: {

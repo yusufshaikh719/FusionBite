@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import React, { useState, useEffect } from 'react';
 import { Calendar, ChefHat, User, LogOut, Settings } from 'lucide-react';
+import { router } from 'expo-router';
+import { getAuth } from 'firebase/auth';
 import { ref, onValue, push, set } from 'firebase/database';
 import app, { database } from '../firebaseConfig';
-import { getAuth } from 'firebase/auth';
 
 const API_KEY = 'CVHaXZOgoCwg59Hcjd3bnX02fUqKii1MnDfCLKSO';
 const API_ENDPOINT = 'https://api.nal.usda.gov/fdc/v1';
 
-// Define common ingredients for different diet types
 const DIET_INGREDIENTS = {
   omnivore: ['chicken breast', 'salmon', 'beef', 'eggs', 'greek yogurt'],
   vegetarian: ['tofu', 'tempeh', 'eggs', 'greek yogurt', 'quinoa'],
@@ -40,7 +39,6 @@ export default function Home() {
       return;
     }
 
-    // Fetch user profile
     const userProfileRef = ref(database, `users/${user.uid}/profile`);
     const unsubscribeProfile = onValue(userProfileRef, (snapshot) => {
       const profileData = snapshot.val();
@@ -49,7 +47,6 @@ export default function Home() {
       }
     });
 
-    // Existing nutrition data fetch logic
     const today = new Date().toISOString().split('T')[0];
     const nutritionRef = ref(database, `users/${user.uid}/nutritionalValues/${today}`);
     
@@ -87,7 +84,6 @@ export default function Home() {
     }
   };
 
-  // Keep existing renderBar and renderDataSection functions
   const renderBar = (value, goal, width) => {
     const percentage = Math.min((value / goal) * 100, 100);
     return (
@@ -165,7 +161,6 @@ const saveMealToDatabase = async () => {
       throw new Error('Missing required data');
     }
 
-    // Save the suggested meal to the database
     const mealsRef = ref(database, `users/${user.uid}/meals`);
     const newMealRef = push(mealsRef);
     await set(newMealRef, suggestedMeal);
@@ -180,7 +175,7 @@ const saveMealToDatabase = async () => {
   const generateMealSuggestion = async () => {
     setGeneratingMeal(true);
     setSuggestedMeal(null);
-    setMealSaved(false); // Reset saved state when generating new meal
+    setMealSaved(false);
   
     try {
       const auth = getAuth();
@@ -194,11 +189,9 @@ const saveMealToDatabase = async () => {
       const userDiet = userProfile.diet.toLowerCase();
       const mealSize = remainingNutrients.calories > 500 ? 'main' : 'snack';
   
-      // Select ingredients based on user's diet and remaining nutrients
       let proteinOptions = DIET_INGREDIENTS[userDiet] || DIET_INGREDIENTS.omnivore;
       let selectedIngredients = [];
       
-      // Add a protein
       const protein = proteinOptions[Math.floor(Math.random() * proteinOptions.length)];
       const proteinData = await searchFoodItem(protein);
       if (proteinData) {
@@ -216,7 +209,6 @@ const saveMealToDatabase = async () => {
         });
       }
   
-      // Add a vegetable
       const veggie = COMMON_VEGGIES[Math.floor(Math.random() * COMMON_VEGGIES.length)];
       const veggieData = await searchFoodItem(veggie);
       if (veggieData) {
@@ -234,7 +226,6 @@ const saveMealToDatabase = async () => {
         });
       }
   
-      // Add a carb if it's a main meal
       if (mealSize === 'main') {
         const carb = COMMON_CARBS[Math.floor(Math.random() * COMMON_CARBS.length)];
         const carbData = await searchFoodItem(carb);
@@ -254,7 +245,6 @@ const saveMealToDatabase = async () => {
         }
       }
   
-      // Calculate total nutrition
       const totalNutrition = selectedIngredients.reduce((total, ingredient) => ({
         calories: total.calories + (ingredient.nutrition.calories || 0),
         protein: total.protein + (ingredient.nutrition.protein || 0),
@@ -269,10 +259,8 @@ const saveMealToDatabase = async () => {
         fiber: 0,
       });
   
-      // Generate meal name
       const mealName = `${selectedIngredients[0].name.split(',')[0]} with ${selectedIngredients[1].name.split(',')[0]}${selectedIngredients[2] ? ` and ${selectedIngredients[2].name.split(',')[0]}` : ''}`;
   
-      // Generate simple directions
       const directions = [
         `Prepare ${selectedIngredients[0].name.split(',')[0]}`,
         `Cook ${selectedIngredients[1].name.split(',')[0]}`,

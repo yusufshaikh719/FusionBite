@@ -1,17 +1,9 @@
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ScrollView,
-} from "react-native";
-import { StatusBar } from "expo-status-bar";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView } from "react-native";
 import { useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { router } from 'expo-router';
 import { getAuth } from "firebase/auth";
 import { ref, set } from "firebase/database";
-import { router } from 'expo-router';
 import app, { database } from "../firebaseConfig";
 
 export default function BiometricInfo() {
@@ -94,13 +86,13 @@ export default function BiometricInfo() {
       key: 'allergies', 
       label: 'Allergies',
       placeholder: 'List any food allergies (or type "None")',
-      validate: () => '' // Optional field
+      validate: () => ''
     },
     { 
       key: 'medicalConditions', 
       label: 'Medical Conditions',
       placeholder: 'List any relevant medical conditions (or type "None")',
-      validate: () => '' // Optional field
+      validate: () => ''
     },
     { 
       key: 'diet', 
@@ -127,7 +119,7 @@ export default function BiometricInfo() {
       ...prevData,
       [key]: value
     }));
-    // Clear error when user starts typing
+    
     if (errors[key]) {
       setErrors(prevErrors => ({
         ...prevErrors,
@@ -207,7 +199,7 @@ export default function BiometricInfo() {
             </View>
           ))}
           <View style={styles.buttonContainer}>
-            <TouchableOpacity 
+            <Pressable 
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleSubmit}
               disabled={loading}
@@ -215,7 +207,7 @@ export default function BiometricInfo() {
               <Text style={styles.buttonText}>
                 {loading ? 'Saving...' : 'Save Profile'}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </View>

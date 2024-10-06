@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { ArrowBigLeftDash, Trash2 } from 'lucide-react';
+import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { ref, get, set, onValue } from 'firebase/database';
 import app, { database } from '../firebaseConfig';
-import { ArrowBigLeftDash, Trash2 } from 'lucide-react';
-import { router } from 'expo-router';
 
 const MEAL_TIMES = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
 
@@ -30,7 +30,6 @@ export default function MealPlanner() {
     const mealsRef = ref(database, `users/${user.uid}/meals`);
     const todayPlanRef = ref(database, `users/${user.uid}/mealPlans/${getCurrentDate()}`);
 
-    // Fetch available meals
     onValue(mealsRef, (snapshot) => {
       if (snapshot.exists()) {
         setAvailableMeals(snapshot.val());
@@ -38,7 +37,6 @@ export default function MealPlanner() {
       setLoading(false);
     });
 
-    // Fetch today's meal plan if exists
     get(todayPlanRef).then((snapshot) => {
       if (snapshot.exists()) {
         const planData = snapshot.val();
@@ -109,14 +107,12 @@ export default function MealPlanner() {
       const date = getCurrentDate();
       const nutritionTotals = calculateNutritionTotals(selectedMeals);
 
-      // Save meal plan
       const mealPlanRef = ref(database, `users/${user.uid}/mealPlans/${date}`);
       await set(mealPlanRef, {
         meals: selectedMeals,
         date,
       });
 
-      // Save nutritional values separately
       const nutritionRef = ref(database, `users/${user.uid}/nutritionalValues/${date}`);
       await set(nutritionRef, nutritionTotals);
 

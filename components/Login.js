@@ -1,16 +1,8 @@
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from "react-native";
-import { StatusBar } from "expo-status-bar";
+import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
 import { useState } from 'react';
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { StatusBar } from "expo-status-bar";
 import { router } from 'expo-router';
-
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import app from '../firebaseConfig';
 
 export default function Login() {
@@ -89,7 +81,7 @@ export default function Login() {
                         />
                     </View>
                     <View style={styles.buttonContainer}>
-                        <TouchableOpacity 
+                        <Pressable 
                             style={[styles.button, loading && styles.buttonDisabled]} 
                             onPress={handleLogin}
                             disabled={loading}
@@ -97,14 +89,14 @@ export default function Login() {
                             <Text style={styles.buttonText}>
                                 {loading ? 'Logging in...' : 'Login'}
                             </Text>
-                        </TouchableOpacity>
+                        </Pressable>
                     </View>
                     <View style={styles.signUpContainer}>
                         <View style={styles.row}>
                             <Text>Don't have an account?</Text>
-                            <TouchableOpacity onPress={() => router.replace("/signup")}>
+                            <Pressable onPress={() => router.replace("/signup")}>
                                 <Text style={styles.signUpText}>Sign up</Text>
-                            </TouchableOpacity>
+                            </Pressable>
                         </View>
                     </View>
                 </View>

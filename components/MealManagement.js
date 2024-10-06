@@ -1,24 +1,13 @@
+import { View, Text, StyleSheet, ScrollView, TextInput, Modal, Alert, ActivityIndicator, Pressable } from 'react-native';
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  Alert,
-  ActivityIndicator,
-  Pressable, 
-} from 'react-native';
-import { getAuth } from 'firebase/auth';
-import { ref, get, set, push } from 'firebase/database';
-import app, { database } from '../firebaseConfig';
 import { ArrowBigLeftDash, ChevronDown, ChevronUp, Plus, X, Search } from 'lucide-react';
 import { router } from 'expo-router';
 import debounce from 'lodash/debounce';
+import { getAuth } from 'firebase/auth';
+import { ref, get, set, push } from 'firebase/database';
+import app, { database } from '../firebaseConfig';
 
-const API_KEY = 'CVHaXZOgoCwg59Hcjd3bnX02fUqKii1MnDfCLKSO'; // You'll need to get this from USDA
+const API_KEY = 'CVHaXZOgoCwg59Hcjd3bnX02fUqKii1MnDfCLKSO';
 const API_ENDPOINT = 'https://api.nal.usda.gov/fdc/v1';
 
 export default function MealManagement() {
@@ -93,7 +82,7 @@ export default function MealManagement() {
       
       const newIngredient = {
         name: food.description,
-        amount: 100, // Default to 100g
+        amount: 100,
         unit: 'g',
         nutrition: {
           calories: detailedFood.labelNutrients?.calories?.value || 0,
@@ -123,7 +112,7 @@ export default function MealManagement() {
 
   const calculateTotalNutrition = (ingredients) => {
     return ingredients.reduce((total, ingredient) => {
-      const multiplier = ingredient.amount / 100; // Since API gives per 100g
+      const multiplier = ingredient.amount / 100;
       return {
         calories: total.calories + (ingredient.nutrition.calories * multiplier),
         protein: total.protein + (ingredient.nutrition.protein * multiplier),
@@ -249,16 +238,16 @@ export default function MealManagement() {
       <ScrollView style={styles.scrollContainer}>
         <Text style={styles.title}>My Meals</Text>
         
-        <TouchableOpacity 
+        <Pressable 
           style={styles.addButton}
           onPress={() => setModalVisible(true)}
         >
           <Plus size={24} color="#FFFFFF" />
           <Text style={styles.addButtonText}>Add New Meal</Text>
-        </TouchableOpacity>
+        </Pressable>
 
         {Object.entries(meals).map(([id, meal]) => (
-          <TouchableOpacity
+          <Pressable
             key={id}
             style={styles.mealCard}
             onPress={() => setExpandedMeal(expandedMeal === id ? null : id)}
@@ -298,7 +287,7 @@ export default function MealManagement() {
                 ))}
               </View>
             )}
-          </TouchableOpacity>
+          </Pressable>
         ))}
 
         <Modal
@@ -310,9 +299,9 @@ export default function MealManagement() {
             <ScrollView style={styles.modalContent}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Add New Meal</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Pressable onPress={() => setModalVisible(false)}>
                   <X size={24} color="#C8B08C" />
-                </TouchableOpacity>
+                </Pressable>
               </View>
 
               <TextInput
@@ -339,13 +328,13 @@ export default function MealManagement() {
               )}
 
               {searchResults.map((result, index) => (
-                <TouchableOpacity
+                <Pressable
                   key={index}
                   style={styles.searchResult}
                   onPress={() => addIngredient(result)}
                 >
                   <Text style={styles.searchResultText}>{result.description}</Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
 
               {newMeal.ingredients.map((ingredient, index) => (
@@ -359,12 +348,12 @@ export default function MealManagement() {
                       keyboardType="numeric"
                     />
                     <Text style={styles.unitText}>g</Text>
-                    <TouchableOpacity 
+                    <Pressable 
                       style={styles.removeButton}
                       onPress={() => removeIngredient(index)}
                     >
                       <X size={20} color="#FF6B6B" />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </View>
               ))}
@@ -389,21 +378,21 @@ export default function MealManagement() {
                     value={direction}
                     onChangeText={(text) => handleDirectionChange(text, index)}
                   />
-                  <TouchableOpacity 
+                  <Pressable 
                     style={styles.removeButton}
                     onPress={() => removeDirection(index)}
                   >
                     <X size={20} color="#FF6B6B" />
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               ))}
-              <TouchableOpacity style={styles.addItemButton} onPress={addDirectionField}>
+              <Pressable style={styles.addItemButton} onPress={addDirectionField}>
                 <Text style={styles.addItemButtonText}>Add Direction</Text>
-              </TouchableOpacity>
+              </Pressable>
 
-              <TouchableOpacity style={styles.saveButton} onPress={saveMeal}>
+              <Pressable style={styles.saveButton} onPress={saveMeal}>
                 <Text style={styles.saveButtonText}>Save Meal</Text>
-              </TouchableOpacity>
+              </Pressable>
             </ScrollView>
           </View>
         </Modal>
