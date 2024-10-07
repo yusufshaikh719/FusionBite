@@ -1,9 +1,9 @@
 import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView } from "react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { router } from 'expo-router';
 import { getAuth } from "firebase/auth";
-import { ref, set } from "firebase/database";
+import { ref, set, get } from "firebase/database";
 import app, { database } from "../firebaseConfig";
 
 export default function BiometricInfo() {
@@ -21,6 +21,36 @@ export default function BiometricInfo() {
     diet: '',
     timeConstraint: '',
   });
+
+  const auth = getAuth(app);
+  const user = auth.currentUser;
+
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
+
+  const fetchProfileData = async () => {
+    if (!user) {
+      Alert.alert("Error", "User not found. Please log in again.");
+      return;
+    }
+
+    try {
+      const userProfileRef = ref(database, `users/${user.uid}/profile`);
+      const snapshot = await get(userProfileRef);
+      
+      if (snapshot.exists()) {
+        const profileData = snapshot.val();
+        setFormData(currentData => ({
+          ...currentData,
+          ...profileData
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching profile data:", error);
+      Alert.alert("Error", "Failed to load profile data. Please try again.");
+    }
+  };
 
   const formFields = [
     { 
@@ -106,7 +136,7 @@ export default function BiometricInfo() {
       placeholder: 'Enter available time for cooking (e.g., 3.5)',
       keyboardType: 'numeric',
       validate: (value) => {
-        const time = parseInt(value);
+        const time = parseFloat(value);
         if (!value) return 'Time constraint is required';
         if (isNaN(time) || time < 0 || time > 24) return 'Please enter a valid time between 0 and 24 hours';
         return '';
@@ -150,8 +180,10 @@ export default function BiometricInfo() {
       return;
     }
 
-    const auth = getAuth(app);
-    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert("Error", "User not found. Please log in again.");
+      return;
+    }
 
     setLoading(true);
     
@@ -159,6 +191,7 @@ export default function BiometricInfo() {
       const userProfileRef = ref(database, `users/${user.uid}/profile`);
       await set(userProfileRef, formData);
       console.log("Profile data saved successfully");
+      Alert.alert("Success", "Profile updated successfully");
       router.replace('/home');
     } catch (error) {
       console.error("Error saving profile data:", error);
@@ -189,7 +222,7 @@ export default function BiometricInfo() {
                   placeholderTextColor="#A3A3A3"
                   style={styles.input}
                   onChangeText={(value) => handleInputChange(field.key, value)}
-                  value={formData[field.key]}
+                  value={formData[field.key].toString()}
                   keyboardType={field.keyboardType || 'default'}
                 />
               </View>
