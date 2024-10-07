@@ -6,10 +6,11 @@ import { getAuth } from 'firebase/auth';
 import { ref, onValue, push, set } from 'firebase/database';
 import app, { database } from '../firebaseConfig';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import Constants from 'expo-constants';
 
-const FDA_API_KEY = 'CVHaXZOgoCwg59Hcjd3bnX02fUqKii1MnDfCLKSO';
+const FDA_API_KEY = Constants.expoConfig.extra.fdaApiKey;
 const FDA_API_ENDPOINT = 'https://api.nal.usda.gov/fdc/v1';
-const GOOGLE_AI_API_KEY = 'AIzaSyCID-98qsqdbwWT11Sm3ed-xPBNLZp8hcM';
+const GOOGLE_AI_API_KEY = Constants.expoConfig.extra.googleAiApiKey;
 
 const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY);
 

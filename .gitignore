@@ -1,3 +1,9 @@
+# Environment variables
+.env
+
+# local env files
+.env*.local
+
 node_modules/
 .expo/
 dist/
@@ -18,3 +24,4 @@ web-build/
 
 expo-env.d.ts
 # @end expo-cli
+
