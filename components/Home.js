@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, TouchableWithoutFeedback } from 'react-native';
 import React, { useState, useEffect } from 'react';
-import { Calendar, ChefHat, User, LogOut, Settings } from 'lucide-react';
+import { Calendar, ChefHat, User, LogOut, Settings } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { ref, onValue, push, set } from 'firebase/database';

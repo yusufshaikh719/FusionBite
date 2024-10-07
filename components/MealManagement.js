@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, TextInput, Modal, Alert, ActivityIndicator, Pressable } from 'react-native';
 import React, { useState, useEffect } from 'react';
-import { ArrowBigLeftDash, ChevronDown, ChevronUp, Plus, X, Search } from 'lucide-react';
+import { ArrowBigLeftDash, ChevronDown, ChevronUp, Plus, X, Search } from 'lucide-react-native';
 import { router } from 'expo-router';
 import debounce from 'lodash/debounce';
 import { getAuth } from 'firebase/auth';

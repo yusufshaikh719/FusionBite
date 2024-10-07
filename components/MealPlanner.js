@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, FlatList } from 'react-native';
 import React, { useState, useEffect } from 'react';
-import { ArrowBigLeftDash, Trash2 } from 'lucide-react';
+import { ArrowBigLeftDash, Trash2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { ref, get, set, onValue } from 'firebase/database';
