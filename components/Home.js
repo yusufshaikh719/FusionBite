@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TouchableWithoutFeedback } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { Calendar, ChefHat, User, LogOut, Settings } from 'lucide-react';
 import { router } from 'expo-router';
@@ -364,55 +364,66 @@ const generateMealSuggestion = async () => {
   );
 
   const dropdownMenu = showDropdown && (
-    <View style={styles.dropdownContainer}>
-      <Pressable 
-        style={styles.dropdownItem}
-        onPress={() => {
-          setShowDropdown(false);
-          router.push('/biometricinfo');
-        }}
-      >
-        <Settings size={20} color="#C8B08C" />
-        <Text style={styles.dropdownText}>Edit Profile</Text>
-      </Pressable>
-      <Pressable 
-        style={[styles.dropdownItem, styles.lastDropdownItem]}
-        onPress={() => {
-          setShowDropdown(false);
-          handleSignOut();
-        }}
-      >
-        <LogOut size={20} color="#FF6B6B" />
-        <Text style={[styles.dropdownText, { color: '#FF6B6B' }]}>Sign Out</Text>
-      </Pressable>
+    <View style={StyleSheet.absoluteFill}>
+      <TouchableWithoutFeedback onPress={() => setShowDropdown(false)}>
+        <View style={styles.dropdownOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={styles.dropdownContainer}>
+              <Pressable 
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setShowDropdown(false);
+                  router.push('/biometricinfo');
+                }}
+              >
+                <Settings size={20} color="#C8B08C" />
+                <Text style={styles.dropdownText}>Edit Profile</Text>
+              </Pressable>
+              <Pressable 
+                style={[styles.dropdownItem, styles.lastDropdownItem]}
+                onPress={() => {
+                  setShowDropdown(false);
+                  handleSignOut();
+                }}
+              >
+                <LogOut size={20} color="#FF6B6B" />
+                <Text style={[styles.dropdownText, { color: '#FF6B6B' }]}>Sign Out</Text>
+              </Pressable>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
     </View>
   );
 
   return (
-    <ScrollView style={styles.container}>
-      {headerWithProfile}
+    <>
+      <ScrollView style={styles.container}>
+        {headerWithProfile}
+        {/* {dropdownMenu} */}
+
+        {nutritionData && renderDataSection(nutritionData, 'Daily Nutrient Intake')}
+        
+        {renderMealSuggester()}
+
+        <Pressable 
+          style={styles.planningButton}
+          onPress={() => router.replace("/mealmanagement")}
+        >
+          {/* <Calendar size={24} color="#FFFFFF" /> */}
+          <Text style={styles.planningButtonText}>View Meals</Text>
+        </Pressable>
+
+        <Pressable 
+          style={styles.planningButton}
+          onPress={() => router.replace("/mealplanner")}
+        >
+          <Calendar size={24} color="#FFFFFF" />
+          <Text style={styles.planningButtonText}>Meal Planning</Text>
+        </Pressable>
+      </ScrollView>
       {dropdownMenu}
-
-      {nutritionData && renderDataSection(nutritionData, 'Daily Nutrient Intake')}
-      
-      {renderMealSuggester()}
-
-      <Pressable 
-        style={styles.planningButton}
-        onPress={() => router.replace("/mealmanagement")}
-      >
-        {/* <Calendar size={24} color="#FFFFFF" /> */}
-        <Text style={styles.planningButtonText}>View Meals</Text>
-      </Pressable>
-
-      <Pressable 
-        style={styles.planningButton}
-        onPress={() => router.replace("/mealplanner")}
-      >
-        <Calendar size={24} color="#FFFFFF" />
-        <Text style={styles.planningButtonText}>Meal Planning</Text>
-      </Pressable>
-    </ScrollView>
+    </>
   );
 }
 
@@ -515,17 +526,19 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   mealSuggesterContainer: {
-    backgroundColor: '#3B3B3B',
+    backgroundColor: '#3B3B3B', // Dark grey background similar to other sections
     borderRadius: 15,
     padding: 15,
+    marginHorizontal: 20,
+    marginBottom: 25, // Match spacing with other sections
   },
   suggesterText: {
-    color: '#E1E1E1',
+    color: '#E1E1E1', // Consistent text color across the app
     fontSize: 16,
     marginBottom: 15,
   },
   generateButton: {
-    backgroundColor: '#4A6E52',
+    backgroundColor: '#4A6E52', // Dark greenish color, aligned with the theme
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -534,13 +547,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   generateButtonText: {
-    color: '#FFFFFF',
+    color: '#FFFFFF', // White text for better contrast
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 10,
   },
   mealName: {
-    color: '#C8B08C',
+    color: '#C8B08C', // Beige color for section titles
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
@@ -572,13 +585,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   regenerateButton: {
-    backgroundColor: '#4A6E52',
+    backgroundColor: '#4A6E52', // Dark greenish color to match the theme
   },
   saveButton: {
-    backgroundColor: '#C8B08C',
+    backgroundColor: '#C8B08C', // Beige color for consistency
   },
   savedButton: {
-    backgroundColor: '#8B7355',
+    backgroundColor: '#8B7355', // Muted brown for saved state
   },
   actionButtonText: {
     color: '#FFFFFF',
@@ -633,5 +646,20 @@ const styles = StyleSheet.create({
   },
   lastDropdownItem: {
     borderBottomWidth: 0,
+  },
+  dropdownOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  dropdownContainer: {
+    position: 'absolute',
+    top: 110,
+    right: 20,
+    backgroundColor: '#3B3B3B',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#5B5B5B',
+    zIndex: 1000,
+    elevation: 5,
   },
 });
