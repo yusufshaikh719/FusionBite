@@ -14,16 +14,6 @@ const GOOGLE_AI_API_KEY = Constants.expoConfig.extra.googleAiApiKey;
 
 const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY);
 
-const DIET_INGREDIENTS = {
-  omnivore: ['chicken breast', 'salmon', 'beef', 'eggs', 'greek yogurt'],
-  vegetarian: ['tofu', 'tempeh', 'eggs', 'greek yogurt', 'quinoa'],
-  vegan: ['tofu', 'tempeh', 'quinoa', 'lentils', 'chickpeas'],
-  keto: ['chicken breast', 'salmon', 'beef', 'eggs', 'avocado'],
-};
-
-const COMMON_VEGGIES = ['broccoli', 'spinach', 'kale', 'cauliflower', 'bell pepper'];
-const COMMON_CARBS = ['brown rice', 'sweet potato', 'quinoa', 'oats', 'whole wheat pasta'];
-
 export default function Home() {
   const [nutritionData, setNutritionData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -184,24 +174,46 @@ const generateMealSuggestion = async () => {
 
   try {
     const remainingNutrients = calculateRemainingNutrients();
+    console.log(remainingNutrients);
     
-    // Generate meal suggestion using Google AI
     const prompt = `Generate a healthy meal suggestion based on the following criteria:
-      - User diet: ${userProfile.diet}
+      - User profile:
+        * Age: ${userProfile.age}
+        * Gender: ${userProfile.gender}
+        * Height: ${userProfile.height}cm
+        * Weight: ${userProfile.weight}kg
+        * Activity level: ${userProfile.activityLevel}
+        * Fitness/health goals: ${userProfile.goals}
+      - Dietary restrictions:
+        * Diet type: ${userProfile.diet}
+        * Allergies: ${userProfile.allergies}
+        * Medical conditions: ${userProfile.medicalConditions}
       - Remaining nutritional needs:
         * Calories: ${remainingNutrients.calories}
         * Protein: ${remainingNutrients.protein}g
         * Carbs: ${remainingNutrients.carbs}g
         * Fat: ${remainingNutrients.fat}g
         * Fiber: ${remainingNutrients.fiber}g
-      - Time constraint: ${userProfile.timeConstraint} hours
-      - Allergies: ${userProfile.allergies}
       
-      Respond ONLY with a JSON object in this exact format, no additional text:
+      Additional Instructions:
+      - Although keeping in mind the user profile and the dietary restrictions is very important, prioritize the remaining nutritional needs when generating the meal
+         - Accordingly, if one of the nutrients are lower, you should try to minimize that nutrient in the meal
+      - The name of the meal should be a description of the main ingrediants of the meal
+      - In the Directions, do not put any step numbers, just list out the steps
+      
+      Respond ONLY with a JSON object in this exact format:
       {
         "name": "Meal Name",
-        "ingredients": ["100g ingredient1", "150g ingredient2"],
-        "directions": ["Step 1", "Step 2", "Step 3"]
+        "ingredients": [
+          {"item": "ingredient1", "amount": 100, "unit": "g"},
+          {"item": "ingredient2", "amount": 150, "unit": "g"}
+        ],
+        "directions": [
+          "Detailed step 1 including cooking method, time, and temperature if applicable",
+          "Detailed step 2",
+          "Detailed step 3",
+          "Final presentation instructions"
+        ]
       }`;
 
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
@@ -210,71 +222,99 @@ const generateMealSuggestion = async () => {
     
     let mealSuggestion;
     try {
-      mealSuggestion = JSON.parse(responseText);
+      const cleanedResponse = responseText.trim().replace(/[\n\r]/g, ' ');
+      mealSuggestion = JSON.parse(cleanedResponse);
     } catch (jsonError) {
       console.error('Failed to parse AI response as JSON:', responseText);
+      generateMealSuggestion();
       throw new Error('Invalid meal suggestion format received from AI');
     }
 
-    // Validate the parsed JSON has the expected structure
-    if (!mealSuggestion.name || !Array.isArray(mealSuggestion.ingredients) || !Array.isArray(mealSuggestion.directions)) {
-      throw new Error('Meal suggestion is missing required properties');
-    }
-
     // Process ingredients and get nutritional data
-    const processedIngredients = [];
-    for (const ingredientStr of mealSuggestion.ingredients) {
-      const match = ingredientStr.match(/(\d+)g\s+(.+)/);
-      if (match) {
-        const amount = parseInt(match[1]);
-        const ingredientName = match[2];
-        const nutritionData = await searchFoodItem(ingredientName);
-        
-        if (nutritionData) {
-          processedIngredients.push({
-            name: nutritionData.description,
-            amount: amount,
-            unit: 'g',
-            nutrition: {
-              calories: (nutritionData.foodNutrients.find(n => n.nutrientName === 'Energy')?.value || 0) * amount / 100,
-              protein: (nutritionData.foodNutrients.find(n => n.nutrientName === 'Protein')?.value || 0) * amount / 100,
-              carbs: (nutritionData.foodNutrients.find(n => n.nutrientName === 'Carbohydrates')?.value || 0) * amount / 100,
-              fat: (nutritionData.foodNutrients.find(n => n.nutrientName === 'Total fat')?.value || 0) * amount / 100,
-              fiber: (nutritionData.foodNutrients.find(n => n.nutrientName === 'Fiber')?.value || 0) * amount / 100,
-            }
-          });
-        }
-      }
-    }
+    const processedIngredients = await Promise.all(
+      mealSuggestion.ingredients.map(async (ingredient) => {
+        try {
+          const response = await fetch(
+            `${FDA_API_ENDPOINT}/foods/search?api_key=${FDA_API_KEY}&query=${encodeURIComponent(ingredient.item)}`
+          );
+          const data = await response.json();
+          
+          if (!data.foods || data.foods.length === 0) {
+            console.warn(`No FDA data found for ${ingredient.item}`);
+            return null;
+          }
 
-    // Calculate total nutrition
-    const totalNutrition = processedIngredients.reduce((total, ingredient) => ({
-      calories: total.calories + (ingredient.nutrition.calories || 0),
-      protein: total.protein + (ingredient.nutrition.protein || 0),
-      carbs: total.carbs + (ingredient.nutrition.carbs || 0),
-      fat: total.fat + (ingredient.nutrition.fat || 0),
-      fiber: total.fiber + (ingredient.nutrition.fiber || 0),
-    }), {
+          const foodItem = data.foods[0];
+          const getNutrientValue = (nutrientId) => {
+            const nutrient = foodItem.foodNutrients.find(n => n.nutrientId === nutrientId);
+            return nutrient ? (nutrient.value * ingredient.amount / 100) : 0;
+          };
+
+          return {
+            name: ingredient.item,
+            amount: ingredient.amount,
+            unit: ingredient.unit,
+            nutrition: {
+              calories: getNutrientValue(1008), // Energy (kcal)
+              carbs: getNutrientValue(1005),   // Carbohydrates
+              fat: getNutrientValue(1004),     // Total lipids (fat)
+              fiber: getNutrientValue(1079),   // Fiber
+              protein: getNutrientValue(1003), // Protein
+            }
+          };
+        } catch (error) {
+          console.error(`Error fetching nutrition data for ${ingredient.item}:`, error);
+          return null;
+        }
+      })
+    );
+
+    // Filter out null values and calculate total nutrition
+    const validIngredients = processedIngredients.filter(ingredient => ingredient !== null);
+    
+    const totalNutrition = validIngredients.reduce((total, ingredient) => {
+      Object.keys(total).forEach(nutrient => {
+        total[nutrient] += ingredient.nutrition[nutrient] || 0;
+      });
+      return total;
+    }, {
       calories: 0,
       protein: 0,
       carbs: 0,
       fat: 0,
-      fiber: 0,
+      fiber: 0
     });
 
-    const suggestedMeal = {
+    // Round all nutritional values
+    Object.keys(totalNutrition).forEach(key => {
+      totalNutrition[key] = Math.round(totalNutrition[key]);
+    });
+
+    const verifiedMeal = {
       name: mealSuggestion.name,
-      ingredients: processedIngredients,
+      ingredients: validIngredients,
       directions: mealSuggestion.directions,
       nutrition: totalNutrition,
     };
 
-    setSuggestedMeal(suggestedMeal);
+    setSuggestedMeal(verifiedMeal);
   } catch (error) {
     console.error('Error generating meal suggestion:', error);
     setError(`Failed to generate meal suggestion: ${error.message}`);
   } finally {
     setGeneratingMeal(false);
+  }
+};
+
+// Helper function to convert energy values
+const convertEnergyToCalories = (energyValue, energyUnit) => {
+  switch(energyUnit.toLowerCase()) {
+    case 'kcal':
+      return energyValue;
+    case 'kj':
+      return energyValue / 4.184; // Convert kJ to kcal
+    default:
+      return energyValue;
   }
 };
 
@@ -400,20 +440,14 @@ const generateMealSuggestion = async () => {
     <>
       <ScrollView style={styles.container}>
         {headerWithProfile}
-        {/* {dropdownMenu} */}
-
         {nutritionData && renderDataSection(nutritionData, 'Daily Nutrient Intake')}
-        
         {renderMealSuggester()}
-
         <Pressable 
           style={styles.planningButton}
           onPress={() => router.replace("/mealmanagement")}
         >
-          {/* <Calendar size={24} color="#FFFFFF" /> */}
           <Text style={styles.planningButtonText}>View Meals</Text>
         </Pressable>
-
         <Pressable 
           style={styles.planningButton}
           onPress={() => router.replace("/mealplanner")}
