@@ -140,7 +140,7 @@ export default function MealPlanner() {
           <ArrowBigLeftDash color="#C8B08C" />
         </Pressable>
       </View>
-      <ScrollView style={styles.container}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Today's Meal Plan</Text>
         
         {MEAL_TIMES.map((mealTime) => (

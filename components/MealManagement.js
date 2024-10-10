@@ -235,7 +235,7 @@ export default function MealManagement() {
           <ArrowBigLeftDash color="#C8B08C" />
         </Pressable>
       </View>
-      <ScrollView style={styles.scrollContainer}>
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>My Meals</Text>
         
         <Pressable 
@@ -296,7 +296,7 @@ export default function MealManagement() {
           transparent={true}
         >
           <View style={styles.modalContainer}>
-            <ScrollView style={styles.modalContent}>
+            <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Add New Meal</Text>
                 <Pressable onPress={() => setModalVisible(false)}>

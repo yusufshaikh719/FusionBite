@@ -91,11 +91,11 @@ export default function Home() {
 
   const renderDataSection = (data, title) => {
     const goals = {
-      calories: 2000,
-      carbs: 300,
-      fat: 65,
-      fiber: 25,
-      protein: 50
+      calories: userProfile.calorie,
+      carbs: Math.round(0.5 * userProfile.calorie),
+      fat: Math.round(0.25 * userProfile.calorie),
+      fiber: 30,
+      protein: Math.round(0.25 * userProfile.calorie)
     };
 
     return (

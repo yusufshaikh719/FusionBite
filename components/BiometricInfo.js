@@ -5,10 +5,16 @@ import { router } from 'expo-router';
 import { getAuth } from "firebase/auth";
 import { ref, set, get } from "firebase/database";
 import app, { database } from "../firebaseConfig";
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import Constants from 'expo-constants';
+
+const GOOGLE_AI_API_KEY = Constants.expoConfig.extra.googleAiApiKey;
+const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY);
 
 export default function BiometricInfo() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [userProfileData, setUserProfileData] = useState({});
   const [formData, setFormData] = useState({
     age: '',
     gender: '',
@@ -41,6 +47,10 @@ export default function BiometricInfo() {
       
       if (snapshot.exists()) {
         const profileData = snapshot.val();
+        const userData = snapshot.val();
+      if (userData) {
+        setUserProfileData(userData);
+      }
         setFormData(currentData => ({
           ...currentData,
           ...profileData
@@ -190,6 +200,31 @@ export default function BiometricInfo() {
     try {
       const userProfileRef = ref(database, `users/${user.uid}/profile`);
       await set(userProfileRef, formData);
+      
+      const prompt = `Generate the number of calories that should be eaten every day based on the following criteria:
+      - User profile:
+        * Age: ${userProfileData.age}
+        * Gender: ${userProfileData.gender}
+        * Height: ${userProfileData.height}cm
+        * Weight: ${userProfileData.weight}kg
+        * Activity level: ${userProfileData.activityLevel}
+        * Fitness/health goals: ${userProfileData.goals}
+      - Dietary restrictions:
+        * Diet type: ${userProfileData.diet}
+        * Allergies: ${userProfileData.allergies}
+        * Medical conditions: ${userProfileData.medicalConditions}
+      
+      Additonal Information:
+      - When calculating the amount of calories that should be eaten every day, err on the side of a lower amount
+      
+      Respond ONLY with one number, NO additional text`;
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
+      console.log(responseText)
+      const userProfileCalorieRef = ref(database, `users/${user.uid}/profile/calorie`)
+      await set(userProfileCalorieRef, parseInt(responseText));
+
       console.log("Profile data saved successfully");
       Alert.alert("Success", "Profile updated successfully");
       router.replace('/home');
