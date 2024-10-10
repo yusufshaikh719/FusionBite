@@ -217,7 +217,7 @@ export default function BiometricInfo() {
       Additonal Information:
       - When calculating the amount of calories that should be eaten every day, err on the side of a lower amount
       
-      Respond ONLY with one number, NO additional text`;
+      Respond ONLY with one number, NO additional text, No additional punctuation like commas`;
       const model = genAI.getGenerativeModel({ model: "gemini-pro" });
       const result = await model.generateContent(prompt);
       const responseText = result.response.text();
