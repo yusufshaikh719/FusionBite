@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, TouchableWithoutFeedback } from 'react-native';
-import React, { useState, useEffect } from 'react';
-import { Calendar, ChefHat, User, LogOut, Settings } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TouchableWithoutFeedback, Animated } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { Calendar, ChefHat, User, LogOut, Settings, AlertCircle, Check } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { ref, onValue, push, set } from 'firebase/database';
@@ -75,7 +75,6 @@ export default function Home() {
       router.replace('/');
     } catch (error) {
       console.error('Error signing out:', error);
-      Alert.alert('Error', 'Failed to sign out. Please try again.');
     }
   };
 
