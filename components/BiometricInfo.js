@@ -1,4 +1,4 @@
-import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView } from "react-native";
 import { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { router } from 'expo-router';
@@ -7,6 +7,7 @@ import { ref, set, get } from "firebase/database";
 import app, { database } from "../firebaseConfig";
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Constants from 'expo-constants';
+import { useAlert } from '../app/AlertContext';
 
 const GOOGLE_AI_API_KEY = Constants.expoConfig.extra.googleAiApiKey;
 const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY);
@@ -14,7 +15,8 @@ const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY);
 export default function BiometricInfo() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [userProfileData, setUserProfileData] = useState({});
+  const showAlert = useAlert();
+
   const [formData, setFormData] = useState({
     age: '',
     gender: '',
@@ -37,20 +39,16 @@ export default function BiometricInfo() {
 
   const fetchProfileData = async () => {
     if (!user) {
-      Alert.alert("Error", "User not found. Please log in again.");
+      showAlert('error', "User not found. Please log in again.");
       return;
     }
 
     try {
       const userProfileRef = ref(database, `users/${user.uid}/profile`);
       const snapshot = await get(userProfileRef);
-      
+
       if (snapshot.exists()) {
         const profileData = snapshot.val();
-        const userData = snapshot.val();
-      if (userData) {
-        setUserProfileData(userData);
-      }
         setFormData(currentData => ({
           ...currentData,
           ...profileData
@@ -58,13 +56,13 @@ export default function BiometricInfo() {
       }
     } catch (error) {
       console.error("Error fetching profile data:", error);
-      Alert.alert("Error", "Failed to load profile data. Please try again.");
+      showAlert('error', "Failed to load profile data. Please try again.");
     }
   };
 
   const formFields = [
-    { 
-      key: 'age', 
+    {
+      key: 'age',
       label: 'Age',
       placeholder: 'Enter your age (e.g., 25)',
       keyboardType: 'numeric',
@@ -75,14 +73,14 @@ export default function BiometricInfo() {
         return '';
       }
     },
-    { 
-      key: 'gender', 
+    {
+      key: 'gender',
       label: 'Gender',
       placeholder: 'Enter your gender',
       validate: (value) => !value ? 'Gender is required' : ''
     },
-    { 
-      key: 'height', 
+    {
+      key: 'height',
       label: 'Height (cm)',
       placeholder: 'Enter your height in cm (e.g., 170)',
       keyboardType: 'numeric',
@@ -93,8 +91,8 @@ export default function BiometricInfo() {
         return '';
       }
     },
-    { 
-      key: 'weight', 
+    {
+      key: 'weight',
       label: 'Weight (kg)',
       placeholder: 'Enter your weight in kg (e.g., 70)',
       keyboardType: 'numeric',
@@ -105,8 +103,8 @@ export default function BiometricInfo() {
         return '';
       }
     },
-    { 
-      key: 'activityLevel', 
+    {
+      key: 'activityLevel',
       label: 'Activity Level',
       placeholder: 'Enter your activity level (Sedentary/Light/Moderate/Very Active)',
       validate: (value) => {
@@ -116,32 +114,32 @@ export default function BiometricInfo() {
         return '';
       }
     },
-    { 
-      key: 'goals', 
+    {
+      key: 'goals',
       label: 'Goals',
       placeholder: 'Enter your fitness/health goals',
       validate: (value) => !value ? 'Goals are required' : ''
     },
-    { 
-      key: 'allergies', 
+    {
+      key: 'allergies',
       label: 'Allergies',
       placeholder: 'List any food allergies (or type "None")',
       validate: () => ''
     },
-    { 
-      key: 'medicalConditions', 
+    {
+      key: 'medicalConditions',
       label: 'Medical Conditions',
       placeholder: 'List any relevant medical conditions (or type "None")',
       validate: () => ''
     },
-    { 
-      key: 'diet', 
+    {
+      key: 'diet',
       label: 'Diet',
       placeholder: 'Enter your dietary preferences',
       validate: (value) => !value ? 'Diet information is required' : ''
     },
-    { 
-      key: 'timeConstraint', 
+    {
+      key: 'timeConstraint',
       label: 'Time Constraint (hours/day)',
       placeholder: 'Enter available time for cooking (e.g., 3.5)',
       keyboardType: 'numeric',
@@ -159,7 +157,7 @@ export default function BiometricInfo() {
       ...prevData,
       [key]: value
     }));
-    
+
     if (errors[key]) {
       setErrors(prevErrors => ({
         ...prevErrors,
@@ -186,39 +184,39 @@ export default function BiometricInfo() {
 
   async function handleSubmit() {
     if (!validateForm()) {
-      Alert.alert("Error", "Please correct the errors in the form");
+      showAlert('error', "Please correct the errors in the form");
       return;
     }
 
     if (!user) {
-      Alert.alert("Error", "User not found. Please log in again.");
+      showAlert('error', "User not found. Please log in again.");
       return;
     }
 
     setLoading(true);
-    
+
     try {
       const userProfileRef = ref(database, `users/${user.uid}/profile`);
       await set(userProfileRef, formData);
-      
+
       const prompt = `Generate the number of calories that should be eaten every day based on the following criteria:
       - User profile:
-        * Age: ${userProfileData.age}
-        * Gender: ${userProfileData.gender}
-        * Height: ${userProfileData.height}cm
-        * Weight: ${userProfileData.weight}kg
-        * Activity level: ${userProfileData.activityLevel}
-        * Fitness/health goals: ${userProfileData.goals}
+        * Age: ${formData.age}
+        * Gender: ${formData.gender}
+        * Height: ${formData.height}cm
+        * Weight: ${formData.weight}kg
+        * Activity level: ${formData.activityLevel}
+        * Fitness/health goals: ${formData.goals}
       - Dietary restrictions:
-        * Diet type: ${userProfileData.diet}
-        * Allergies: ${userProfileData.allergies}
-        * Medical conditions: ${userProfileData.medicalConditions}
+        * Diet type: ${formData.diet}
+        * Allergies: ${formData.allergies}
+        * Medical conditions: ${formData.medicalConditions}
       
-      Additonal Information:
+      Additional Information:
       - When calculating the amount of calories that should be eaten every day, err on the side of a lower amount
       
       Respond ONLY with one number, NO additional text, No additional punctuation like commas`;
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const result = await model.generateContent(prompt);
       const responseText = result.response.text();
       console.log(responseText)
@@ -226,14 +224,14 @@ export default function BiometricInfo() {
       await set(userProfileCalorieRef, parseInt(responseText));
 
       console.log("Profile data saved successfully");
-      Alert.alert("Success", "Profile updated successfully");
+      showAlert('success', "Profile updated successfully");
       router.replace('/home');
     } catch (error) {
       console.error("Error saving profile data:", error);
       if (error.code === 'PERMISSION_DENIED') {
-        Alert.alert("Error", "You don't have permission to save profile data. Please make sure you're logged in.");
+        showAlert('error', "You don't have permission to save profile data. Please make sure you're logged in.");
       } else {
-        Alert.alert("Error", "Failed to save profile data. Please try again.");
+        showAlert('error', "Failed to save profile data. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -267,7 +265,7 @@ export default function BiometricInfo() {
             </View>
           ))}
           <View style={styles.buttonContainer}>
-            <Pressable 
+            <Pressable
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleSubmit}
               disabled={loading}

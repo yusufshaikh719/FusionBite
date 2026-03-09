@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, TouchableWithoutFeedback, Animated } from 'react-native';
-import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, ChefHat, User, LogOut, Settings, AlertCircle, Check } from 'lucide-react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TouchableWithoutFeedback } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Calendar, ChefHat, User, LogOut, Settings } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { ref, onValue, push, set } from 'firebase/database';
@@ -44,7 +44,7 @@ export default function Home() {
 
     const today = new Date().toISOString().split('T')[0];
     const nutritionRef = ref(database, `users/${user.uid}/nutritionalValues/${today}`);
-    
+
     const unsubscribeNutrition = onValue(nutritionRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -145,37 +145,37 @@ export default function Home() {
       return null;
     }
   };
-  
-const saveMealToDatabase = async () => {
-  try {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    
-    if (!user || !suggestedMeal) {
-      throw new Error('Missing required data');
+
+  const saveMealToDatabase = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (!user || !suggestedMeal) {
+        throw new Error('Missing required data');
+      }
+
+      const mealsRef = ref(database, `users/${user.uid}/meals`);
+      const newMealRef = push(mealsRef);
+      await set(newMealRef, suggestedMeal);
+
+      setMealSaved(true);
+    } catch (error) {
+      console.error('Error saving meal:', error);
+      setError('Failed to save meal');
     }
+  };
 
-    const mealsRef = ref(database, `users/${user.uid}/meals`);
-    const newMealRef = push(mealsRef);
-    await set(newMealRef, suggestedMeal);
+  const generateMealSuggestion = async () => {
+    setGeneratingMeal(true);
+    setSuggestedMeal(null);
+    setMealSaved(false);
 
-    setMealSaved(true);
-  } catch (error) {
-    console.error('Error saving meal:', error);
-    setError('Failed to save meal');
-  }
-};
+    try {
+      const remainingNutrients = calculateRemainingNutrients();
+      console.log(remainingNutrients);
 
-const generateMealSuggestion = async () => {
-  setGeneratingMeal(true);
-  setSuggestedMeal(null);
-  setMealSaved(false);
-
-  try {
-    const remainingNutrients = calculateRemainingNutrients();
-    console.log(remainingNutrients);
-    
-    const prompt = `Generate a healthy meal suggestion based on the following criteria:
+      const prompt = `Generate a healthy meal suggestion based on the following criteria:
       - User profile:
         * Age: ${userProfile.age}
         * Gender: ${userProfile.gender}
@@ -215,107 +215,96 @@ const generateMealSuggestion = async () => {
         ]
       }`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    
-    let mealSuggestion;
-    try {
-      const cleanedResponse = responseText.trim().replace(/[\n\r]/g, ' ');
-      mealSuggestion = JSON.parse(cleanedResponse);
-    } catch (jsonError) {
-      console.error('Failed to parse AI response as JSON:', responseText);
-      generateMealSuggestion();
-      throw new Error('Invalid meal suggestion format received from AI');
-    }
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const result = await model.generateContent(prompt);
+      const responseText = result.response.text();
 
-    // Process ingredients and get nutritional data
-    const processedIngredients = await Promise.all(
-      mealSuggestion.ingredients.map(async (ingredient) => {
-        try {
-          const response = await fetch(
-            `${FDA_API_ENDPOINT}/foods/search?api_key=${FDA_API_KEY}&query=${encodeURIComponent(ingredient.item)}`
-          );
-          const data = await response.json();
-          
-          if (!data.foods || data.foods.length === 0) {
-            console.warn(`No FDA data found for ${ingredient.item}`);
+      let mealSuggestion;
+      try {
+        const cleanedResponse = responseText.trim().replace(/[\n\r]/g, ' ');
+        mealSuggestion = JSON.parse(cleanedResponse);
+      } catch (jsonError) {
+        console.error('Failed to parse AI response as JSON:', responseText);
+        throw new Error('Invalid meal suggestion format received from AI');
+      }
+
+      // Process ingredients and get nutritional data
+      const processedIngredients = await Promise.all(
+        mealSuggestion.ingredients.map(async (ingredient) => {
+          try {
+            const response = await fetch(
+              `${FDA_API_ENDPOINT}/foods/search?api_key=${FDA_API_KEY}&query=${encodeURIComponent(ingredient.item)}`
+            );
+            const data = await response.json();
+
+            if (!data.foods || data.foods.length === 0) {
+              console.warn(`No FDA data found for ${ingredient.item}`);
+              return null;
+            }
+
+            const foodItem = data.foods[0];
+            const getNutrientValue = (nutrientId) => {
+              const nutrient = foodItem.foodNutrients.find(n => n.nutrientId === nutrientId);
+              return nutrient ? (nutrient.value * ingredient.amount / 100) : 0;
+            };
+
+            return {
+              name: ingredient.item,
+              amount: ingredient.amount,
+              unit: ingredient.unit,
+              nutrition: {
+                calories: getNutrientValue(1008), // Energy (kcal)
+                carbs: getNutrientValue(1005),   // Carbohydrates
+                fat: getNutrientValue(1004),     // Total lipids (fat)
+                fiber: getNutrientValue(1079),   // Fiber
+                protein: getNutrientValue(1003), // Protein
+              }
+            };
+          } catch (error) {
+            console.error(`Error fetching nutrition data for ${ingredient.item}:`, error);
             return null;
           }
+        })
+      );
 
-          const foodItem = data.foods[0];
-          const getNutrientValue = (nutrientId) => {
-            const nutrient = foodItem.foodNutrients.find(n => n.nutrientId === nutrientId);
-            return nutrient ? (nutrient.value * ingredient.amount / 100) : 0;
-          };
+      // Filter out null values and calculate total nutrition
+      const validIngredients = processedIngredients.filter(ingredient => ingredient !== null);
 
-          return {
-            name: ingredient.item,
-            amount: ingredient.amount,
-            unit: ingredient.unit,
-            nutrition: {
-              calories: getNutrientValue(1008), // Energy (kcal)
-              carbs: getNutrientValue(1005),   // Carbohydrates
-              fat: getNutrientValue(1004),     // Total lipids (fat)
-              fiber: getNutrientValue(1079),   // Fiber
-              protein: getNutrientValue(1003), // Protein
-            }
-          };
-        } catch (error) {
-          console.error(`Error fetching nutrition data for ${ingredient.item}:`, error);
-          return null;
-        }
-      })
-    );
-
-    // Filter out null values and calculate total nutrition
-    const validIngredients = processedIngredients.filter(ingredient => ingredient !== null);
-    
-    const totalNutrition = validIngredients.reduce((total, ingredient) => {
-      Object.keys(total).forEach(nutrient => {
-        total[nutrient] += ingredient.nutrition[nutrient] || 0;
+      const totalNutrition = validIngredients.reduce((total, ingredient) => {
+        Object.keys(total).forEach(nutrient => {
+          total[nutrient] += ingredient.nutrition[nutrient] || 0;
+        });
+        return total;
+      }, {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        fiber: 0
       });
-      return total;
-    }, {
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      fiber: 0
-    });
 
-    // Round all nutritional values
-    Object.keys(totalNutrition).forEach(key => {
-      totalNutrition[key] = Math.round(totalNutrition[key]);
-    });
+      // Round all nutritional values
+      Object.keys(totalNutrition).forEach(key => {
+        totalNutrition[key] = Math.round(totalNutrition[key]);
+      });
 
-    const verifiedMeal = {
-      name: mealSuggestion.name,
-      ingredients: validIngredients,
-      directions: mealSuggestion.directions,
-      nutrition: totalNutrition,
-    };
+      const verifiedMeal = {
+        name: mealSuggestion.name,
+        ingredients: validIngredients,
+        directions: mealSuggestion.directions,
+        nutrition: totalNutrition,
+      };
 
-    setSuggestedMeal(verifiedMeal);
-  } catch (error) {
-    console.error('Error generating meal suggestion:', error);
-    setError(`Failed to generate meal suggestion: ${error.message}`);
-  } finally {
-    setGeneratingMeal(false);
-  }
-};
+      setSuggestedMeal(verifiedMeal);
+    } catch (error) {
+      console.error('Error generating meal suggestion:', error);
+      setError(`Failed to generate meal suggestion: ${error.message}`);
+    } finally {
+      setGeneratingMeal(false);
+    }
+  };
 
-// Helper function to convert energy values
-const convertEnergyToCalories = (energyValue, energyUnit) => {
-  switch(energyUnit.toLowerCase()) {
-    case 'kcal':
-      return energyValue;
-    case 'kj':
-      return energyValue / 4.184; // Convert kJ to kcal
-    default:
-      return energyValue;
-  }
-};
+
 
   const renderMealSuggester = () => (
     <View style={styles.section}>
@@ -344,7 +333,7 @@ const convertEnergyToCalories = (energyValue, energyUnit) => {
               </Text>
             ))}
             <View style={styles.buttonContainer}>
-              <Pressable 
+              <Pressable
                 style={[styles.actionButton, styles.regenerateButton]}
                 onPress={generateMealSuggestion}
                 disabled={generatingMeal}
@@ -354,9 +343,9 @@ const convertEnergyToCalories = (energyValue, energyUnit) => {
                   {generatingMeal ? 'Generating...' : 'Regenerate'}
                 </Text>
               </Pressable>
-              <Pressable 
+              <Pressable
                 style={[
-                  styles.actionButton, 
+                  styles.actionButton,
                   styles.saveButton,
                   mealSaved && styles.savedButton
                 ]}
@@ -375,7 +364,7 @@ const convertEnergyToCalories = (energyValue, energyUnit) => {
           </Text>
         )}
         {!suggestedMeal && (
-          <Pressable 
+          <Pressable
             style={styles.generateButton}
             onPress={generateMealSuggestion}
             disabled={generatingMeal}
@@ -393,7 +382,7 @@ const convertEnergyToCalories = (energyValue, energyUnit) => {
   const headerWithProfile = (
     <View style={styles.headerContainer}>
       <Text style={styles.headerText}>FusionBite</Text>
-      <Pressable 
+      <Pressable
         style={styles.profileIcon}
         onPress={() => setShowDropdown(!showDropdown)}
       >
@@ -408,7 +397,7 @@ const convertEnergyToCalories = (energyValue, energyUnit) => {
         <View style={styles.dropdownOverlay}>
           <TouchableWithoutFeedback>
             <View style={styles.dropdownContainer}>
-              <Pressable 
+              <Pressable
                 style={styles.dropdownItem}
                 onPress={() => {
                   setShowDropdown(false);
@@ -418,7 +407,7 @@ const convertEnergyToCalories = (energyValue, energyUnit) => {
                 <Settings size={20} color="#C8B08C" />
                 <Text style={styles.dropdownText}>Edit Profile</Text>
               </Pressable>
-              <Pressable 
+              <Pressable
                 style={[styles.dropdownItem, styles.lastDropdownItem]}
                 onPress={() => {
                   setShowDropdown(false);
@@ -441,13 +430,13 @@ const convertEnergyToCalories = (energyValue, energyUnit) => {
         {headerWithProfile}
         {nutritionData && renderDataSection(nutritionData, 'Daily Nutrient Intake')}
         {renderMealSuggester()}
-        <Pressable 
+        <Pressable
           style={styles.planningButton}
           onPress={() => router.replace("/mealmanagement")}
         >
           <Text style={styles.planningButtonText}>View Meals</Text>
         </Pressable>
-        <Pressable 
+        <Pressable
           style={styles.planningButton}
           onPress={() => router.replace("/mealplanner")}
         >
@@ -654,17 +643,7 @@ const styles = StyleSheet.create({
   profileIcon: {
     padding: 8,
   },
-  dropdownContainer: {
-    position: 'absolute',
-    top: 110,
-    right: 20,
-    backgroundColor: '#3B3B3B',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#5B5B5B',
-    zIndex: 1000,
-    elevation: 5,
-  },
+
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',

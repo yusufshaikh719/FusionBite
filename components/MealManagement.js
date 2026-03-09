@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TextInput, Modal, Alert, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, Modal, ActivityIndicator, Pressable } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { ArrowBigLeftDash, ChevronDown, ChevronUp, Plus, X, Search } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -6,14 +6,17 @@ import debounce from 'lodash/debounce';
 import { getAuth } from 'firebase/auth';
 import { ref, get, set, push } from 'firebase/database';
 import app, { database } from '../firebaseConfig';
+import Constants from 'expo-constants';
+import { useAlert } from '../app/AlertContext';
 
-const API_KEY = 'CVHaXZOgoCwg59Hcjd3bnX02fUqKii1MnDfCLKSO';
+const API_KEY = Constants.expoConfig.extra.fdaApiKey;
 const API_ENDPOINT = 'https://api.nal.usda.gov/fdc/v1';
 
 export default function MealManagement() {
   const [meals, setMeals] = useState({});
   const [loading, setLoading] = useState(true);
   const [expandedMeal, setExpandedMeal] = useState(null);
+  const showAlert = useAlert();
   const [modalVisible, setModalVisible] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -34,8 +37,9 @@ export default function MealManagement() {
   const user = auth.currentUser;
 
   useEffect(() => {
+    if (!user?.uid) return;
     fetchMeals();
-  }, [user.uid]);
+  }, [user?.uid]);
 
   const fetchMeals = async () => {
     if (!user.uid) return;
@@ -48,7 +52,7 @@ export default function MealManagement() {
       }
     } catch (error) {
       console.error("Error fetching meals:", error);
-      Alert.alert("Error", "Failed to load meals. Please try again.");
+      showAlert('error', "Failed to load meals. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -79,7 +83,7 @@ export default function MealManagement() {
         `${API_ENDPOINT}/food/${food.fdcId}?api_key=${API_KEY}`
       );
       const detailedFood = await response.json();
-      
+
       const newIngredient = {
         name: food.description,
         amount: 100,
@@ -106,7 +110,7 @@ export default function MealManagement() {
       setSearchResults([]);
     } catch (error) {
       console.error("Error adding ingredient:", error);
-      Alert.alert("Error", "Failed to add ingredient. Please try again.");
+      showAlert('error', "Failed to add ingredient. Please try again.");
     }
   };
 
@@ -131,7 +135,7 @@ export default function MealManagement() {
 
   const updateIngredientAmount = (index, amount) => {
     setNewMeal(prev => {
-      const updatedIngredients = prev.ingredients.map((ing, i) => 
+      const updatedIngredients = prev.ingredients.map((ing, i) =>
         i === index ? { ...ing, amount: parseFloat(amount) || 0 } : ing
       );
       const updatedNutrition = calculateTotalNutrition(updatedIngredients);
@@ -179,17 +183,17 @@ export default function MealManagement() {
     if (!user.uid) return;
 
     if (!newMeal.name.trim()) {
-      Alert.alert("Error", "Please enter a meal name");
+      showAlert('error', "Please enter a meal name");
       return;
     }
 
     if (newMeal.ingredients.length === 0) {
-      Alert.alert("Error", "Please add at least one ingredient");
+      showAlert('error', "Please add at least one ingredient");
       return;
     }
 
     if (newMeal.directions.some(d => !d.trim())) {
-      Alert.alert("Error", "Please fill in all direction fields");
+      showAlert('error', "Please fill in all direction fields");
       return;
     }
 
@@ -202,12 +206,12 @@ export default function MealManagement() {
       const mealsRef = ref(database, `users/${user.uid}/meals`);
       const newMealRef = push(mealsRef);
       await set(newMealRef, mealToSave);
-      
+
       setMeals(prevMeals => ({
         ...prevMeals,
         [newMealRef.key]: mealToSave,
       }));
-      
+
       setModalVisible(false);
       setNewMeal({
         name: '',
@@ -221,10 +225,10 @@ export default function MealManagement() {
           fiber: 0,
         },
       });
-      Alert.alert("Success", "Meal saved successfully!");
+      showAlert('success', "Meal saved successfully!");
     } catch (error) {
       console.error("Error saving meal:", error);
-      Alert.alert("Error", "Failed to save meal. Please try again.");
+      showAlert('error', "Failed to save meal. Please try again.");
     }
   };
 
@@ -237,8 +241,8 @@ export default function MealManagement() {
       </View>
       <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>My Meals</Text>
-        
-        <Pressable 
+
+        <Pressable
           style={styles.addButton}
           onPress={() => setModalVisible(true)}
         >
@@ -260,25 +264,25 @@ export default function MealManagement() {
                 <ChevronDown size={24} color="#C8B08C" />
               )}
             </View>
-            
+
             {expandedMeal === id && (
               <View style={styles.mealDetails}>
                 <View style={styles.nutritionInfo}>
                   {Object.entries(meal.nutrition).map(([nutrient, value]) => (
                     <Text key={nutrient} style={styles.nutritionText}>
-                      {nutrient.charAt(0).toUpperCase() + nutrient.slice(1)}: 
+                      {nutrient.charAt(0).toUpperCase() + nutrient.slice(1)}:
                       {' '}{Math.round(value)}{nutrient === 'calories' ? 'kcal' : 'g'}
                     </Text>
                   ))}
                 </View>
-                
+
                 <Text style={styles.sectionTitle}>Ingredients:</Text>
                 {meal.ingredients.map((ingredient, index) => (
                   <Text key={index} style={styles.ingredient}>
                     • {ingredient.amount}g {ingredient.name}
                   </Text>
                 ))}
-                
+
                 <Text style={styles.sectionTitle}>Directions:</Text>
                 {meal.directions.map((direction, index) => (
                   <Text key={index} style={styles.direction}>
@@ -348,7 +352,7 @@ export default function MealManagement() {
                       keyboardType="numeric"
                     />
                     <Text style={styles.unitText}>g</Text>
-                    <Pressable 
+                    <Pressable
                       style={styles.removeButton}
                       onPress={() => removeIngredient(index)}
                     >
@@ -362,7 +366,7 @@ export default function MealManagement() {
                 <Text style={styles.nutritionTitle}>Nutritional Information:</Text>
                 {Object.entries(newMeal.nutrition).map(([nutrient, value]) => (
                   <Text key={nutrient} style={styles.nutritionSummaryText}>
-                    {nutrient.charAt(0).toUpperCase() + nutrient.slice(1)}: 
+                    {nutrient.charAt(0).toUpperCase() + nutrient.slice(1)}:
                     {' '}{Math.round(value)}{nutrient === 'calories' ? 'kcal' : 'g'}
                   </Text>
                 ))}
@@ -378,7 +382,7 @@ export default function MealManagement() {
                     value={direction}
                     onChangeText={(text) => handleDirectionChange(text, index)}
                   />
-                  <Pressable 
+                  <Pressable
                     style={styles.removeButton}
                     onPress={() => removeDirection(index)}
                   >
@@ -402,235 +406,235 @@ export default function MealManagement() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#2E2E2E',
-    },
-    scrollContainer: {
-      padding: 20,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: '#2E2E2E',
-    },
-    backButton: {
-      padding: 15,
-      marginTop: 40,
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: '#C8B08C',
-      marginBottom: 20,
-      textAlign: 'center',
-    },
-    addButton: {
-      flexDirection: 'row',
-      backgroundColor: '#4A6E52',
-      padding: 15,
-      borderRadius: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 20,
-    },
-    addButtonText: {
-      color: '#FFFFFF',
-      fontSize: 18,
-      fontWeight: 'bold',
-      marginLeft: 10,
-    },
-    mealCard: {
-      backgroundColor: '#3B3B3B',
-      borderRadius: 10,
-      padding: 15,
-      marginBottom: 15,
-    },
-    mealHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    mealName: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: '#E1E1E1',
-    },
-    mealDetails: {
-      marginTop: 15,
-    },
-    nutritionInfo: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginBottom: 10,
-    },
-    nutritionText: {
-      color: '#C8B08C',
-      marginRight: 10,
-      marginBottom: 5,
-    },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: '#4A6E52',
-      marginTop: 10,
-      marginBottom: 5,
-    },
-    ingredient: {
-      color: '#E1E1E1',
-      marginBottom: 5,
-    },
-    direction: {
-      color: '#E1E1E1',
-      marginBottom: 5,
-    },
-    modalContainer: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-    },
-    modalContent: {
-      backgroundColor: '#2E2E2E',
-      borderRadius: 20,
-      padding: 20,
-      maxHeight: '90%',
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 20,
-    },
-    modalTitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: '#C8B08C',
-    },
-    modalSectionTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: '#4A6E52',
-      marginTop: 15,
-      marginBottom: 10,
-    },
-    input: {
-      backgroundColor: '#3B3B3B',
-      borderRadius: 10,
-      padding: 15,
-      color: '#E1E1E1',
-      marginBottom: 15,
-    },
-    searchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: '#3B3B3B',
-      borderRadius: 10,
-      paddingHorizontal: 15,
-      marginBottom: 10,
-    },
-    searchIcon: {
-      marginRight: 10,
-    },
-    searchInput: {
-      flex: 1,
-      color: '#E1E1E1',
-      padding: 15,
-    },
-    searchingIndicator: {
-      marginVertical: 10,
-    },
-    searchResult: {
-      backgroundColor: '#3B3B3B',
-      padding: 15,
-      borderRadius: 10,
-      marginBottom: 5,
-    },
-    searchResultText: {
-      color: '#E1E1E1',
-    },
-    ingredientContainer: {
-      backgroundColor: '#3B3B3B',
-      borderRadius: 10,
-      padding: 15,
-      marginBottom: 10,
-    },
-    ingredientName: {
-      color: '#E1E1E1',
-      fontSize: 16,
-      marginBottom: 5,
-    },
-    ingredientAmount: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    amountInput: {
-      backgroundColor: '#2E2E2E',
-      borderRadius: 5,
-      padding: 10,
-      color: '#E1E1E1',
-      width: 60,
-      marginRight: 10,
-    },
-    unitText: {
-      color: '#C8B08C',
-      marginRight: 10,
-    },
-    nutritionSummary: {
-      backgroundColor: '#3B3B3B',
-      borderRadius: 10,
-      padding: 15,
-      marginVertical: 15,
-    },
-    nutritionTitle: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: '#4A6E52',
-      marginBottom: 10,
-    },
-    nutritionSummaryText: {
-      color: '#E1E1E1',
-      marginBottom: 5,
-    },
-    directionContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 10,
-    },
-    directionInput: {
-      flex: 1,
-      backgroundColor: '#3B3B3B',
-      borderRadius: 10,
-      padding: 15,
-      color: '#E1E1E1',
-      marginRight: 10,
-    },
-    removeButton: {
-      padding: 5,
-    },
-    addItemButton: {
-      backgroundColor: '#4A6E52',
-      padding: 15,
-      borderRadius: 10,
-      alignItems: 'center',
-      marginTop: 10,
-    },
-    addItemButtonText: {
-      color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: 'bold',
-    },
-    saveButton: {
-      backgroundColor: '#C8B08C',
-      padding: 15,
-      borderRadius: 10,
-      alignItems: 'center',
-      marginTop: 20,
-      marginBottom: 30,
-    },
-    saveButtonText: {
-      color: '#2E2E2E',
-      fontSize: 18,
-      fontWeight: 'bold',
-    },
-  });
+  container: {
+    flex: 1,
+    backgroundColor: '#2E2E2E',
+  },
+  scrollContainer: {
+    padding: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#2E2E2E',
+  },
+  backButton: {
+    padding: 15,
+    marginTop: 40,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#C8B08C',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  addButton: {
+    flexDirection: 'row',
+    backgroundColor: '#4A6E52',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
+  },
+  mealCard: {
+    backgroundColor: '#3B3B3B',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+  },
+  mealHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  mealName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#E1E1E1',
+  },
+  mealDetails: {
+    marginTop: 15,
+  },
+  nutritionInfo: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 10,
+  },
+  nutritionText: {
+    color: '#C8B08C',
+    marginRight: 10,
+    marginBottom: 5,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4A6E52',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  ingredient: {
+    color: '#E1E1E1',
+    marginBottom: 5,
+  },
+  direction: {
+    color: '#E1E1E1',
+    marginBottom: 5,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#2E2E2E',
+    borderRadius: 20,
+    padding: 20,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#C8B08C',
+  },
+  modalSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4A6E52',
+    marginTop: 15,
+    marginBottom: 10,
+  },
+  input: {
+    backgroundColor: '#3B3B3B',
+    borderRadius: 10,
+    padding: 15,
+    color: '#E1E1E1',
+    marginBottom: 15,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3B3B3B',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    marginBottom: 10,
+  },
+  searchIcon: {
+    marginRight: 10,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#E1E1E1',
+    padding: 15,
+  },
+  searchingIndicator: {
+    marginVertical: 10,
+  },
+  searchResult: {
+    backgroundColor: '#3B3B3B',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 5,
+  },
+  searchResultText: {
+    color: '#E1E1E1',
+  },
+  ingredientContainer: {
+    backgroundColor: '#3B3B3B',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 10,
+  },
+  ingredientName: {
+    color: '#E1E1E1',
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  ingredientAmount: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  amountInput: {
+    backgroundColor: '#2E2E2E',
+    borderRadius: 5,
+    padding: 10,
+    color: '#E1E1E1',
+    width: 60,
+    marginRight: 10,
+  },
+  unitText: {
+    color: '#C8B08C',
+    marginRight: 10,
+  },
+  nutritionSummary: {
+    backgroundColor: '#3B3B3B',
+    borderRadius: 10,
+    padding: 15,
+    marginVertical: 15,
+  },
+  nutritionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4A6E52',
+    marginBottom: 10,
+  },
+  nutritionSummaryText: {
+    color: '#E1E1E1',
+    marginBottom: 5,
+  },
+  directionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  directionInput: {
+    flex: 1,
+    backgroundColor: '#3B3B3B',
+    borderRadius: 10,
+    padding: 15,
+    color: '#E1E1E1',
+    marginRight: 10,
+  },
+  removeButton: {
+    padding: 5,
+  },
+  addItemButton: {
+    backgroundColor: '#4A6E52',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  addItemButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  saveButton: {
+    backgroundColor: '#C8B08C',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  saveButtonText: {
+    color: '#2E2E2E',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+});

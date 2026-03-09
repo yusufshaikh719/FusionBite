@@ -1,11 +1,14 @@
 import { Stack } from 'expo-router';
+import { AlertProvider } from './AlertContext';
 
 export default function Layout() {
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    />
+    <AlertProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      />
+    </AlertProvider>
   );
 }

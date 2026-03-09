@@ -1,32 +1,40 @@
-import { View, Text, TextInput, Pressable, StyleSheet, Alert, } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import { router } from 'expo-router';
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import app from "../firebaseConfig";
+import { ref, set } from "firebase/database";
+import app, { database } from "../firebaseConfig";
+import { useAlert } from "../app/AlertContext";
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
-  
+  const showAlert = useAlert();
+
   async function handleSignUp() {
     if (!email || !password || !username) {
-      Alert.alert("Error", "Please fill in all fields");
+      showAlert('error', "Please fill in all fields");
       return;
     }
 
     setLoading(true);
     const auth = getAuth(app);
-    
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       console.log("Sign up successful", userCredential.user.uid);
+
+      // Save username to database profile
+      const userProfileRef = ref(database, `users/${userCredential.user.uid}/profile`);
+      await set(userProfileRef, { username });
+
       router.replace("/biometricinfo");
     } catch (error) {
       console.error("Sign up error:", error);
-      Alert.alert("Sign Up Failed", getErrorMessage(error.code));
+      showAlert('error', getErrorMessage(error.code));
     } finally {
       setLoading(false);
     }
@@ -86,7 +94,7 @@ export default function SignUp() {
             />
           </View>
           <View style={styles.buttonContainer}>
-            <Pressable 
+            <Pressable
               style={[styles.button, loading && styles.buttonDisabled]}
               onPress={handleSignUp}
               disabled={loading}

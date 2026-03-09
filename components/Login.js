@@ -1,108 +1,110 @@
-import { View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
 import { useState } from 'react';
 import { StatusBar } from "expo-status-bar";
 import { router } from 'expo-router';
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import app from '../firebaseConfig';
+import { useAlert } from '../app/AlertContext';
 
 export default function Login() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const showAlert = useAlert();
 
-    async function handleLogin() {
-        if (!email || !password) {
-            Alert.alert("Error", "Please fill in all fields");
-            return;
-        }
-
-        setLoading(true);
-        const auth = getAuth(app);
-        
-        try {
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            console.log("Login successful", userCredential.user.uid);
-            router.replace({
-                pathname: '/home',
-                params: {
-                    userId: userCredential.user.uid,
-                }
-            });
-        } catch (error) {
-            console.error("Login error:", error);
-            Alert.alert("Login Failed", getErrorMessage(error.code));
-        } finally {
-            setLoading(false);
-        }
+  async function handleLogin() {
+    if (!email || !password) {
+      showAlert('error', "Please fill in all fields");
+      return;
     }
 
-    function getErrorMessage(errorCode) {
-        switch (errorCode) {
-            case 'auth/invalid-email':
-                return 'Invalid email address.';
-            case 'auth/user-disabled':
-                return 'This user has been disabled.';
-            case 'auth/user-not-found':
-                return 'No user found with this email.';
-            case 'auth/wrong-password':
-                return 'Incorrect password.';
-            default:
-                return 'An error occurred during login. Please try again.';
-        }
-    }
+    setLoading(true);
+    const auth = getAuth(app);
 
-    return (
-        <View style={styles.container}>
-            <StatusBar style="light" hidden={true} />
-            <View style={styles.innerContainer}>
-                <View style={styles.header}>
-                    <Text style={styles.headerText}>FusionBite</Text>
-                </View>
-                <View style={styles.inputContainer}>
-                    <View style={styles.inputWrapper}>
-                        <TextInput
-                            placeholder="Email"
-                            placeholderTextColor="#A3A3A3"
-                            style={styles.input}
-                            onChangeText={setEmail}
-                            value={email}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                        />
-                    </View>
-                    <View style={styles.inputWrapper}>
-                        <TextInput
-                            placeholder="Password"
-                            placeholderTextColor="#A3A3A3"
-                            style={styles.input}
-                            onChangeText={setPassword}
-                            value={password}
-                            secureTextEntry={true}
-                        />
-                    </View>
-                    <View style={styles.buttonContainer}>
-                        <Pressable 
-                            style={[styles.button, loading && styles.buttonDisabled]} 
-                            onPress={handleLogin}
-                            disabled={loading}
-                        >
-                            <Text style={styles.buttonText}>
-                                {loading ? 'Logging in...' : 'Login'}
-                            </Text>
-                        </Pressable>
-                    </View>
-                    <View style={styles.signUpContainer}>
-                        <View style={styles.row}>
-                            <Text>Don't have an account?</Text>
-                            <Pressable onPress={() => router.replace("/signup")}>
-                                <Text style={styles.signUpText}>Sign up</Text>
-                            </Pressable>
-                        </View>
-                    </View>
-                </View>
-            </View>
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log("Login successful", userCredential.user.uid);
+      router.replace({
+        pathname: '/home',
+        params: {
+          userId: userCredential.user.uid,
+        }
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      showAlert('error', getErrorMessage(error.code));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function getErrorMessage(errorCode) {
+    switch (errorCode) {
+      case 'auth/invalid-email':
+        return 'Invalid email address.';
+      case 'auth/user-disabled':
+        return 'This user has been disabled.';
+      case 'auth/user-not-found':
+        return 'No user found with this email.';
+      case 'auth/wrong-password':
+        return 'Incorrect password.';
+      default:
+        return 'An error occurred during login. Please try again.';
+    }
+  }
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" hidden={true} />
+      <View style={styles.innerContainer}>
+        <View style={styles.header}>
+          <Text style={styles.headerText}>FusionBite</Text>
         </View>
-    );
+        <View style={styles.inputContainer}>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              placeholder="Email"
+              placeholderTextColor="#A3A3A3"
+              style={styles.input}
+              onChangeText={setEmail}
+              value={email}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              placeholder="Password"
+              placeholderTextColor="#A3A3A3"
+              style={styles.input}
+              onChangeText={setPassword}
+              value={password}
+              secureTextEntry={true}
+            />
+          </View>
+          <View style={styles.buttonContainer}>
+            <Pressable
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? 'Logging in...' : 'Login'}
+              </Text>
+            </Pressable>
+          </View>
+          <View style={styles.signUpContainer}>
+            <View style={styles.row}>
+              <Text>Don't have an account?</Text>
+              <Pressable onPress={() => router.replace("/signup")}>
+                <Text style={styles.signUpText}>Sign up</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

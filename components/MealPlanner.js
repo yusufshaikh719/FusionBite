@@ -1,16 +1,18 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Modal, FlatList } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { ArrowBigLeftDash, Trash2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { ref, get, set, onValue } from 'firebase/database';
 import app, { database } from '../firebaseConfig';
+import { useAlert } from '../app/AlertContext';
 
 const MEAL_TIMES = ['Breakfast', 'Lunch', 'Dinner', 'Snacks'];
 
 export default function MealPlanner() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const showAlert = useAlert();
   const [availableMeals, setAvailableMeals] = useState({});
   const [selectedMeals, setSelectedMeals] = useState({
     Breakfast: [],
@@ -116,10 +118,10 @@ export default function MealPlanner() {
       const nutritionRef = ref(database, `users/${user.uid}/nutritionalValues/${date}`);
       await set(nutritionRef, nutritionTotals);
 
-      Alert.alert("Success", "Meal plan saved successfully!");
+      showAlert('success', "Meal plan saved successfully!");
     } catch (error) {
       console.error("Error saving meal plan:", error);
-      Alert.alert("Error", "Failed to save meal plan. Please try again.");
+      showAlert('error', "Failed to save meal plan. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -142,14 +144,14 @@ export default function MealPlanner() {
       </View>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Today's Meal Plan</Text>
-        
+
         {MEAL_TIMES.map((mealTime) => (
           <View key={mealTime} style={styles.mealTimeSection}>
             <Text style={styles.mealTimeTitle}>{mealTime}</Text>
             {selectedMeals[mealTime]?.map((mealId, index) => (
               <View key={`${mealTime}-${index}`} style={styles.mealItem}>
                 <Text style={styles.mealName}>{availableMeals[mealId]?.name}</Text>
-                <Pressable 
+                <Pressable
                   onPress={() => handleRemoveMeal(mealTime, index)}
                   style={styles.removeButton}
                 >
@@ -157,7 +159,7 @@ export default function MealPlanner() {
                 </Pressable>
               </View>
             ))}
-            <Pressable 
+            <Pressable
               style={styles.addButton}
               onPress={() => handleAddMeal(mealTime)}
             >
@@ -166,7 +168,7 @@ export default function MealPlanner() {
           </View>
         ))}
 
-        <Pressable 
+        <Pressable
           style={[styles.saveButton, saving && styles.savingButton]}
           onPress={saveMealPlan}
           disabled={saving}
