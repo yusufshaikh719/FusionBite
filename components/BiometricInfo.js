@@ -1,20 +1,27 @@
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, Modal, FlatList } from "react-native";
 import { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { router } from 'expo-router';
 import { getAuth } from "firebase/auth";
 import { ref, set, get } from "firebase/database";
 import app, { database } from "../firebaseConfig";
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from "@google/genai";
 import Constants from 'expo-constants';
 import { useAlert } from '../app/AlertContext';
 
 const GOOGLE_AI_API_KEY = Constants.expoConfig.extra.googleAiApiKey;
-const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY);
+const ai = new GoogleGenAI({apiKey: GOOGLE_AI_API_KEY})
+
+const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
+const ACTIVITY_OPTIONS = ['Sedentary', 'Light', 'Moderate', 'Very Active'];
+const DIET_OPTIONS = ['Balanced', 'Low Carb', 'Keto', 'Vegan', 'Vegetarian', 'Paleo'];
+const GOAL_OPTIONS = ['Weight Loss', 'Muscle Gain', 'Maintenance', 'Improved Health'];
 
 export default function BiometricInfo() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [currentPickerField, setCurrentPickerField] = useState(null);
   const showAlert = useAlert();
 
   const [formData, setFormData] = useState({
@@ -76,7 +83,9 @@ export default function BiometricInfo() {
     {
       key: 'gender',
       label: 'Gender',
-      placeholder: 'Enter your gender',
+      placeholder: 'Select your gender',
+      type: 'dropdown',
+      options: GENDER_OPTIONS,
       validate: (value) => !value ? 'Gender is required' : ''
     },
     {
@@ -106,18 +115,20 @@ export default function BiometricInfo() {
     {
       key: 'activityLevel',
       label: 'Activity Level',
-      placeholder: 'Enter your activity level (Sedentary/Light/Moderate/Very Active)',
+      placeholder: 'Select your activity level',
+      type: 'dropdown',
+      options: ACTIVITY_OPTIONS,
       validate: (value) => {
-        const validLevels = ['sedentary', 'light', 'moderate', 'very active'];
         if (!value) return 'Activity level is required';
-        if (!validLevels.includes(value.toLowerCase())) return 'Please enter a valid activity level';
         return '';
       }
     },
     {
       key: 'goals',
       label: 'Goals',
-      placeholder: 'Enter your fitness/health goals',
+      placeholder: 'Select your fitness/health goals',
+      type: 'dropdown',
+      options: GOAL_OPTIONS,
       validate: (value) => !value ? 'Goals are required' : ''
     },
     {
@@ -135,7 +146,9 @@ export default function BiometricInfo() {
     {
       key: 'diet',
       label: 'Diet',
-      placeholder: 'Enter your dietary preferences',
+      placeholder: 'Select your dietary preferences',
+      type: 'dropdown',
+      options: DIET_OPTIONS,
       validate: (value) => !value ? 'Diet information is required' : ''
     },
     {
@@ -216,12 +229,14 @@ export default function BiometricInfo() {
       - When calculating the amount of calories that should be eaten every day, err on the side of a lower amount
       
       Respond ONLY with one number, NO additional text, No additional punctuation like commas`;
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      const result = await model.generateContent(prompt);
-      const responseText = result.response.text();
-      console.log(responseText)
+      const responseText = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      console.log(responseText);
       const userProfileCalorieRef = ref(database, `users/${user.uid}/profile/calorie`)
-      await set(userProfileCalorieRef, parseInt(responseText));
+      const calories = parseInt(responseText.candidates[0].content.parts[0].text);
+      await set(userProfileCalorieRef, calories);
 
       console.log("Profile data saved successfully");
       showAlert('success', "Profile updated successfully");
@@ -238,6 +253,16 @@ export default function BiometricInfo() {
     }
   }
 
+  const openPicker = (field) => {
+    setCurrentPickerField(field);
+    setPickerVisible(true);
+  };
+
+  const handleSelectOption = (option) => {
+    handleInputChange(currentPickerField.key, option);
+    setPickerVisible(false);
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <StatusBar style="light" hidden={true} />
@@ -250,14 +275,25 @@ export default function BiometricInfo() {
             <View key={field.key} style={styles.fieldContainer}>
               <Text style={styles.fieldLabel}>{field.label}</Text>
               <View style={styles.inputWrapper}>
-                <TextInput
-                  placeholder={field.placeholder}
-                  placeholderTextColor="#A3A3A3"
-                  style={styles.input}
-                  onChangeText={(value) => handleInputChange(field.key, value)}
-                  value={formData[field.key].toString()}
-                  keyboardType={field.keyboardType || 'default'}
-                />
+                {field.type === 'dropdown' ? (
+                  <Pressable
+                    style={styles.dropdownTrigger}
+                    onPress={() => openPicker(field)}
+                  >
+                    <Text style={[styles.input, !formData[field.key] && { color: '#A3A3A3' }]}>
+                      {formData[field.key] || field.placeholder}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <TextInput
+                    placeholder={field.placeholder}
+                    placeholderTextColor="#A3A3A3"
+                    style={styles.input}
+                    onChangeText={(value) => handleInputChange(field.key, value)}
+                    value={formData[field.key].toString()}
+                    keyboardType={field.keyboardType || 'default'}
+                  />
+                )}
               </View>
               {errors[field.key] ? (
                 <Text style={styles.errorText}>{errors[field.key]}</Text>
@@ -277,6 +313,40 @@ export default function BiometricInfo() {
           </View>
         </View>
       </View>
+
+      <Modal
+        visible={pickerVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setPickerVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select {currentPickerField?.label}</Text>
+            <FlatList
+              data={currentPickerField?.options}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={styles.optionItem}
+                  onPress={() => handleSelectOption(item)}
+                >
+                  <Text style={styles.optionText}>{item}</Text>
+                </Pressable>
+              )}
+            />
+            <Pressable
+              style={styles.cancelButton}
+              onPress={() => setPickerVisible(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -321,6 +391,7 @@ const styles = StyleSheet.create({
   },
   input: {
     color: "#E1E1E1",
+    outlineStyle: 'none',
   },
   buttonContainer: {
     marginTop: 20,
@@ -343,5 +414,53 @@ const styles = StyleSheet.create({
     color: "#FF6B6B",
     fontSize: 14,
     marginTop: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#3B3B3B',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxHeight: '80%',
+    borderColor: '#5B5B5B',
+    borderWidth: 1,
+  },
+  modalTitle: {
+    color: '#C8B08C',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  optionItem: {
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#5B5B5B',
+  },
+  optionText: {
+    color: '#E1E1E1',
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  cancelButton: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#4A6E52',
+    borderRadius: 15,
+  },
+  cancelButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  dropdownTrigger: {
+    width: '100%',
   },
 });

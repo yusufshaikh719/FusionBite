@@ -70,6 +70,7 @@ export default function SignUp() {
               style={styles.input}
               onChangeText={setUsername}
               value={username}
+              autoComplete="username"
             />
           </View>
           <View style={styles.inputWrapper}>
@@ -81,6 +82,7 @@ export default function SignUp() {
               value={email}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoComplete="email"
             />
           </View>
           <View style={styles.inputWrapper}>
@@ -91,6 +93,7 @@ export default function SignUp() {
               onChangeText={setPassword}
               value={password}
               secureTextEntry={true}
+              autoComplete="new-password"
             />
           </View>
           <View style={styles.buttonContainer}>
@@ -149,6 +152,7 @@ const styles = StyleSheet.create({
   },
   input: {
     color: "#E1E1E1",
+    outlineStyle: 'none',
   },
   buttonContainer: {
     width: "100%",

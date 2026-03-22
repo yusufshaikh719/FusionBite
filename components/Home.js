@@ -5,14 +5,14 @@ import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
 import { ref, onValue, push, set } from 'firebase/database';
 import app, { database } from '../firebaseConfig';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from "@google/genai";
 import Constants from 'expo-constants';
 
 const FDA_API_KEY = Constants.expoConfig.extra.fdaApiKey;
 const FDA_API_ENDPOINT = 'https://api.nal.usda.gov/fdc/v1';
 const GOOGLE_AI_API_KEY = Constants.expoConfig.extra.googleAiApiKey;
 
-const genAI = new GoogleGenerativeAI(GOOGLE_AI_API_KEY);
+const ai = new GoogleGenAI({ apiKey: GOOGLE_AI_API_KEY });
 
 export default function Home() {
   const [nutritionData, setNutritionData] = useState(null);
@@ -215,13 +215,15 @@ export default function Home() {
         ]
       }`;
 
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-      const result = await model.generateContent(prompt);
-      const responseText = result.response.text();
+      const responseText = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
 
       let mealSuggestion;
       try {
-        const cleanedResponse = responseText.trim().replace(/[\n\r]/g, ' ');
+        const textResponse = responseText.candidates[0].content.parts[0].text;
+        const cleanedResponse = textResponse.trim().replace(/[\n\r]/g, ' ');
         mealSuggestion = JSON.parse(cleanedResponse);
       } catch (jsonError) {
         console.error('Failed to parse AI response as JSON:', responseText);

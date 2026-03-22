@@ -27,7 +27,7 @@ export function AlertProvider({ children }) {
     if (type === 'success') {
       setTimeout(() => {
         handleDismiss();
-      }, 2000);
+      }, 1200);
     }
   };
 

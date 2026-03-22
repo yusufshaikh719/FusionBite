@@ -192,10 +192,6 @@ export default function MealManagement() {
       return;
     }
 
-    if (newMeal.directions.some(d => !d.trim())) {
-      showAlert('error', "Please fill in all direction fields");
-      return;
-    }
 
     const mealToSave = {
       ...newMeal,
@@ -524,6 +520,7 @@ const styles = StyleSheet.create({
     padding: 15,
     color: '#E1E1E1',
     marginBottom: 15,
+    outlineStyle: 'none',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -540,6 +537,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#E1E1E1',
     padding: 15,
+    outlineStyle: 'none',
   },
   searchingIndicator: {
     marginVertical: 10,
@@ -575,6 +573,7 @@ const styles = StyleSheet.create({
     color: '#E1E1E1',
     width: 60,
     marginRight: 10,
+    outlineStyle: 'none',
   },
   unitText: {
     color: '#C8B08C',
@@ -608,6 +607,7 @@ const styles = StyleSheet.create({
     padding: 15,
     color: '#E1E1E1',
     marginRight: 10,
+    outlineStyle: 'none',
   },
   removeButton: {
     padding: 5,
