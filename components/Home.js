@@ -1,452 +1,345 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, TouchableWithoutFeedback } from 'react-native';
+/**
+ * Home — Live Digital Twin Dashboard
+ *
+ * The central view of FusionBite. Shows the user's current metabolic state:
+ *   • Glycogen Reserve gauge
+ *   • Insulin Sensitivity Score
+ *   • Predicted Glucose Trajectory (chart)
+ *   • Intent-based Meal Generation
+ *   • Quick links to Meal Management, Meal Planner, Bio-Sync
+ */
+
+import { View, Text, StyleSheet, ScrollView, Pressable, TouchableWithoutFeedback, ActivityIndicator } from 'react-native';
 import React, { useState, useEffect } from 'react';
-import { Calendar, ChefHat, User, LogOut, Settings } from 'lucide-react-native';
+import { Calendar, ChefHat, User, LogOut, Settings, Zap, Moon, Heart, Activity } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { getAuth } from 'firebase/auth';
-import { ref, onValue, push, set } from 'firebase/database';
+import { ref, onValue } from 'firebase/database';
 import app, { database } from '../firebaseConfig';
-import { GoogleGenAI } from "@google/genai";
-import Constants from 'expo-constants';
+import GlucoseChart from './GlucoseChart';
+import apiService from '../services/apiService';
 
-const FDA_API_KEY = Constants.expoConfig.extra.fdaApiKey;
-const FDA_API_ENDPOINT = 'https://api.nal.usda.gov/fdc/v1';
-const GOOGLE_AI_API_KEY = Constants.expoConfig.extra.googleAiApiKey;
-
-const ai = new GoogleGenAI({ apiKey: GOOGLE_AI_API_KEY });
+const INTENTS = [
+  { key: 'breakfast', label: '🌅 Breakfast', color: '#D4A574' },
+  { key: 'lunch', label: '☀️ Lunch', color: '#4A6E52' },
+  { key: 'dinner', label: '🌙 Dinner', color: '#5B7DB1' },
+  { key: 'snack', label: '🍎 Snack', color: '#C8B08C' },
+];
 
 export default function Home() {
-  const [nutritionData, setNutritionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [suggestedMeal, setSuggestedMeal] = useState(null);
-  const [generatingMeal, setGeneratingMeal] = useState(false);
-  const [userProfile, setUserProfile] = useState(null);
-  const [mealSaved, setMealSaved] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
+
+  // Digital Twin state
+  const [twinState, setTwinState] = useState(null);
+  const [healthStatus, setHealthStatus] = useState(null);
+  const [glucoseTrajectory, setGlucoseTrajectory] = useState([]);
+
+  // Meal generation
+  const [generatingMeal, setGeneratingMeal] = useState(false);
+  const [generatedMeal, setGeneratedMeal] = useState(null);
+  const [mealTrajectory, setMealTrajectory] = useState([]);
+
+  const auth = getAuth(app);
+  const user = auth.currentUser;
 
   useEffect(() => {
-    const auth = getAuth(app);
-    const user = auth.currentUser;
-
     if (!user) {
       setError('User not authenticated');
       setLoading(false);
       return;
     }
 
-    const userProfileRef = ref(database, `users/${user.uid}/profile`);
-    const unsubscribeProfile = onValue(userProfileRef, (snapshot) => {
-      const profileData = snapshot.val();
-      if (profileData) {
-        setUserProfile(profileData);
-      }
+    // Listen to user profile from Firebase
+    const profileRef = ref(database, `users/${user.uid}/profile`);
+    const unsubProfile = onValue(profileRef, (snapshot) => {
+      setUserProfile(snapshot.val());
     });
 
-    const today = new Date().toISOString().split('T')[0];
-    const nutritionRef = ref(database, `users/${user.uid}/nutritionalValues/${today}`);
+    // Load dashboard data from the backend
+    loadDashboard();
 
-    const unsubscribeNutrition = onValue(nutritionRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setNutritionData(data);
-        setError(null);
-      } else {
-        setNutritionData({
-          calories: 0,
-          carbs: 0,
-          fat: 0,
-          fiber: 0,
-          protein: 0
-        });
-      }
-      setLoading(false);
-    });
-
-    return () => {
-      unsubscribeProfile();
-      unsubscribeNutrition();
-    };
+    return () => unsubProfile();
   }, []);
+
+  const loadDashboard = async () => {
+    try {
+      const data = await apiService.getDashboard(user.uid);
+      setTwinState(data.twin_state);
+      setHealthStatus(data.health_status);
+      setGlucoseTrajectory(data.glucose_trajectory);
+      setError(null);
+    } catch (err) {
+      console.warn('Backend not available, using defaults:', err.message);
+      // Use default state if backend is not running
+      setTwinState({
+        bayesian_parameters: { p1: 0.028, p2: 0.025, p3: 0.000013, gastric_base: 0.05, glut4_factor: 1.0 },
+        current_state: { estimated_glucose: 95, estimated_glycogen: 80, insulin_sensitivity_score: 1.0, estimated_insulin: 10 },
+      });
+      setHealthStatus({
+        today_steps: 0, today_active_energy: 0,
+        last_sleep_hours: null, last_hrv: null,
+        insulin_sensitivity_modifier: 1.0, glut4_modifier: 1.0,
+      });
+      setGlucoseTrajectory([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
-      const auth = getAuth();
       await auth.signOut();
       router.replace('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
+    } catch (err) {
+      console.error('Error signing out:', err);
     }
   };
 
-  const renderBar = (value, goal, width) => {
-    const percentage = Math.min((value / goal) * 100, 100);
-    return (
-      <View style={styles.barContainer}>
-        <View style={[styles.bar, { width: `${percentage}%` }]} />
-        <View style={[styles.goalBar, { width: `${width}%` }]} />
-      </View>
-    );
-  };
-
-  const renderDataSection = (data, title) => {
-    const goals = {
-      calories: userProfile.calorie,
-      carbs: Math.round(0.5 * userProfile.calorie),
-      fat: Math.round(0.25 * userProfile.calorie),
-      fiber: 30,
-      protein: Math.round(0.25 * userProfile.calorie)
-    };
-
-    return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        <View style={styles.chartContainer}>
-          {Object.entries(data).map(([key, value], index) => (
-            <View key={index} style={styles.dataRow}>
-              <View style={styles.labelContainer}>
-                <Text style={styles.label}>{key.charAt(0).toUpperCase() + key.slice(1)}</Text>
-                <Text style={styles.value}>{Math.round(value)}/{goals[key]}</Text>
-              </View>
-              {renderBar(value, goals[key], 100)}
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  };
-
-  const calculateRemainingNutrients = () => {
-    const dailyGoals = {
-      calories: 2000,
-      protein: 50,
-      carbs: 300,
-      fat: 65,
-      fiber: 25
-    };
-
-    return {
-      calories: dailyGoals.calories - (nutritionData?.calories || 0),
-      protein: dailyGoals.protein - (nutritionData?.protein || 0),
-      carbs: dailyGoals.carbs - (nutritionData?.carbs || 0),
-      fat: dailyGoals.fat - (nutritionData?.fat || 0),
-      fiber: dailyGoals.fiber - (nutritionData?.fiber || 0)
-    };
-  };
-
-  const searchFoodItem = async (query) => {
-    try {
-      const response = await fetch(
-        `${FDA_API_ENDPOINT}/foods/search?api_key=${FDA_API_KEY}&query=${query}`
-      );
-      const data = await response.json();
-      return data.foods[0];
-    } catch (error) {
-      console.error("Error searching food:", error);
-      return null;
-    }
-  };
-
-  const saveMealToDatabase = async () => {
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-
-      if (!user || !suggestedMeal) {
-        throw new Error('Missing required data');
-      }
-
-      const mealsRef = ref(database, `users/${user.uid}/meals`);
-      const newMealRef = push(mealsRef);
-      await set(newMealRef, suggestedMeal);
-
-      setMealSaved(true);
-    } catch (error) {
-      console.error('Error saving meal:', error);
-      setError('Failed to save meal');
-    }
-  };
-
-  const generateMealSuggestion = async () => {
+  const handleGenerateMeal = async (intent) => {
     setGeneratingMeal(true);
-    setSuggestedMeal(null);
-    setMealSaved(false);
+    setGeneratedMeal(null);
+    setMealTrajectory([]);
 
     try {
-      const remainingNutrients = calculateRemainingNutrients();
-      console.log(remainingNutrients);
-
-      const prompt = `Generate a healthy meal suggestion based on the following criteria:
-      - User profile:
-        * Age: ${userProfile.age}
-        * Gender: ${userProfile.gender}
-        * Height: ${userProfile.height}cm
-        * Weight: ${userProfile.weight}kg
-        * Activity level: ${userProfile.activityLevel}
-        * Fitness/health goals: ${userProfile.goals}
-      - Dietary restrictions:
-        * Diet type: ${userProfile.diet}
-        * Allergies: ${userProfile.allergies}
-        * Medical conditions: ${userProfile.medicalConditions}
-      - Remaining nutritional needs:
-        * Calories: ${remainingNutrients.calories}
-        * Protein: ${remainingNutrients.protein}g
-        * Carbs: ${remainingNutrients.carbs}g
-        * Fat: ${remainingNutrients.fat}g
-        * Fiber: ${remainingNutrients.fiber}g
-      
-      Additional Instructions:
-      - Although keeping in mind the user profile and the dietary restrictions is very important, prioritize the remaining nutritional needs when generating the meal
-         - Accordingly, if one of the nutrients are lower, you should try to minimize that nutrient in the meal
-      - The name of the meal should be a description of the main ingrediants of the meal
-      - In the Directions, do not put any step numbers, just list out the steps
-      
-      Respond ONLY with a JSON object in this exact format:
-      {
-        "name": "Meal Name",
-        "ingredients": [
-          {"item": "ingredient1", "amount": 100, "unit": "g"},
-          {"item": "ingredient2", "amount": 150, "unit": "g"}
-        ],
-        "directions": [
-          "Detailed step 1 including cooking method, time, and temperature if applicable",
-          "Detailed step 2",
-          "Detailed step 3",
-          "Final presentation instructions"
-        ]
-      }`;
-
-      const responseText = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-      });
-
-      let mealSuggestion;
-      try {
-        const textResponse = responseText.candidates[0].content.parts[0].text;
-        const cleanedResponse = textResponse.trim().replace(/[\n\r]/g, ' ');
-        mealSuggestion = JSON.parse(cleanedResponse);
-      } catch (jsonError) {
-        console.error('Failed to parse AI response as JSON:', responseText);
-        throw new Error('Invalid meal suggestion format received from AI');
-      }
-
-      // Process ingredients and get nutritional data
-      const processedIngredients = await Promise.all(
-        mealSuggestion.ingredients.map(async (ingredient) => {
-          try {
-            const response = await fetch(
-              `${FDA_API_ENDPOINT}/foods/search?api_key=${FDA_API_KEY}&query=${encodeURIComponent(ingredient.item)}`
-            );
-            const data = await response.json();
-
-            if (!data.foods || data.foods.length === 0) {
-              console.warn(`No FDA data found for ${ingredient.item}`);
-              return null;
-            }
-
-            const foodItem = data.foods[0];
-            const getNutrientValue = (nutrientId) => {
-              const nutrient = foodItem.foodNutrients.find(n => n.nutrientId === nutrientId);
-              return nutrient ? (nutrient.value * ingredient.amount / 100) : 0;
-            };
-
-            return {
-              name: ingredient.item,
-              amount: ingredient.amount,
-              unit: ingredient.unit,
-              nutrition: {
-                calories: getNutrientValue(1008), // Energy (kcal)
-                carbs: getNutrientValue(1005),   // Carbohydrates
-                fat: getNutrientValue(1004),     // Total lipids (fat)
-                fiber: getNutrientValue(1079),   // Fiber
-                protein: getNutrientValue(1003), // Protein
-              }
-            };
-          } catch (error) {
-            console.error(`Error fetching nutrition data for ${ingredient.item}:`, error);
-            return null;
-          }
-        })
-      );
-
-      // Filter out null values and calculate total nutrition
-      const validIngredients = processedIngredients.filter(ingredient => ingredient !== null);
-
-      const totalNutrition = validIngredients.reduce((total, ingredient) => {
-        Object.keys(total).forEach(nutrient => {
-          total[nutrient] += ingredient.nutrition[nutrient] || 0;
-        });
-        return total;
-      }, {
-        calories: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
-        fiber: 0
-      });
-
-      // Round all nutritional values
-      Object.keys(totalNutrition).forEach(key => {
-        totalNutrition[key] = Math.round(totalNutrition[key]);
-      });
-
-      const verifiedMeal = {
-        name: mealSuggestion.name,
-        ingredients: validIngredients,
-        directions: mealSuggestion.directions,
-        nutrition: totalNutrition,
-      };
-
-      setSuggestedMeal(verifiedMeal);
-    } catch (error) {
-      console.error('Error generating meal suggestion:', error);
-      setError(`Failed to generate meal suggestion: ${error.message}`);
+      const result = await apiService.generateMeal(user.uid, intent);
+      setGeneratedMeal(result.recipe);
+      setMealTrajectory(result.trajectory);
+    } catch (err) {
+      console.error('Meal generation failed:', err);
+      setError('Failed to generate meal. Is the backend running?');
     } finally {
       setGeneratingMeal(false);
     }
   };
 
-
-
-  const renderMealSuggester = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Meal Suggester</Text>
-      <View style={styles.mealSuggesterContainer}>
-        {suggestedMeal ? (
-          <>
-            <Text style={styles.mealName}>{suggestedMeal.name}</Text>
-            <Text style={styles.subTitle}>Ingredients:</Text>
-            {suggestedMeal.ingredients.map((ingredient, index) => (
-              <Text key={index} style={styles.ingredientText}>
-                • {ingredient.amount}{ingredient.unit} {ingredient.name.split(',')[0]}
-              </Text>
-            ))}
-            <Text style={styles.subTitle}>Directions:</Text>
-            {suggestedMeal.directions.map((direction, index) => (
-              <Text key={index} style={styles.directionText}>
-                {index + 1}. {direction}
-              </Text>
-            ))}
-            <Text style={styles.subTitle}>Nutritional Value:</Text>
-            {Object.entries(suggestedMeal.nutrition).map(([key, value], index) => (
-              <Text key={index} style={styles.nutritionText}>
-                {key.charAt(0).toUpperCase() + key.slice(1)}: {Math.round(value)}
-                {key === 'calories' ? ' kcal' : 'g'}
-              </Text>
-            ))}
-            <View style={styles.buttonContainer}>
-              <Pressable
-                style={[styles.actionButton, styles.regenerateButton]}
-                onPress={generateMealSuggestion}
-                disabled={generatingMeal}
-              >
-                <ChefHat size={20} color="#FFFFFF" />
-                <Text style={styles.actionButtonText}>
-                  {generatingMeal ? 'Generating...' : 'Regenerate'}
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.actionButton,
-                  styles.saveButton,
-                  mealSaved && styles.savedButton
-                ]}
-                onPress={saveMealToDatabase}
-                disabled={mealSaved}
-              >
-                <Text style={styles.actionButtonText}>
-                  {mealSaved ? 'Saved!' : 'Save Meal'}
-                </Text>
-              </Pressable>
-            </View>
-          </>
-        ) : (
-          <Text style={styles.suggesterText}>
-            Get a personalized meal suggestion based on your remaining nutritional needs
-          </Text>
-        )}
-        {!suggestedMeal && (
-          <Pressable
-            style={styles.generateButton}
-            onPress={generateMealSuggestion}
-            disabled={generatingMeal}
-          >
-            <ChefHat size={24} color="#FFFFFF" />
-            <Text style={styles.generateButtonText}>
-              {generatingMeal ? 'Generating...' : 'Generate Meal'}
-            </Text>
-          </Pressable>
-        )}
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4A6E52" />
+        <Text style={styles.loadingText}>Loading Digital Twin...</Text>
       </View>
-    </View>
-  );
+    );
+  }
 
-  const headerWithProfile = (
-    <View style={styles.headerContainer}>
-      <Text style={styles.headerText}>FusionBite</Text>
-      <Pressable
-        style={styles.profileIcon}
-        onPress={() => setShowDropdown(!showDropdown)}
-      >
-        <User color="#C8B08C" size={24} />
-      </Pressable>
-    </View>
-  );
+  const currentState = twinState?.current_state || {};
+  const glycogen = currentState.estimated_glycogen || 80;
+  const glucose = currentState.estimated_glucose || 95;
+  const sensitivity = currentState.insulin_sensitivity_score || 1.0;
 
-  const dropdownMenu = showDropdown && (
-    <View style={StyleSheet.absoluteFill}>
-      <TouchableWithoutFeedback onPress={() => setShowDropdown(false)}>
-        <View style={styles.dropdownOverlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.dropdownContainer}>
-              <Pressable
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setShowDropdown(false);
-                  router.push('/biometricinfo');
-                }}
-              >
-                <Settings size={20} color="#C8B08C" />
-                <Text style={styles.dropdownText}>Edit Profile</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.dropdownItem, styles.lastDropdownItem]}
-                onPress={() => {
-                  setShowDropdown(false);
-                  handleSignOut();
-                }}
-              >
-                <LogOut size={20} color="#FF6B6B" />
-                <Text style={[styles.dropdownText, { color: '#FF6B6B' }]}>Sign Out</Text>
-              </Pressable>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </View>
-  );
+  const getGlycogenLabel = (pct) => {
+    if (pct > 70) return 'Fully Charged';
+    if (pct > 40) return 'Moderate';
+    if (pct > 20) return 'Depleted';
+    return 'Critically Low';
+  };
+
+  const getSensitivityLabel = (score) => {
+    if (score >= 1.2) return 'Excellent';
+    if (score >= 0.9) return 'Normal';
+    if (score >= 0.7) return 'Reduced';
+    return 'Low (Sleep Tax)';
+  };
 
   return (
     <>
-      <ScrollView style={styles.container}>
-        {headerWithProfile}
-        {nutritionData && renderDataSection(nutritionData, 'Daily Nutrient Intake')}
-        {renderMealSuggester()}
-        <Pressable
-          style={styles.planningButton}
-          onPress={() => router.replace("/mealmanagement")}
-        >
-          <Text style={styles.planningButtonText}>View Meals</Text>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* ── Header ── */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerText}>FusionBite</Text>
+          <Pressable style={styles.profileIcon} onPress={() => setShowDropdown(!showDropdown)}>
+            <User color="#C8B08C" size={24} />
+          </Pressable>
+        </View>
+
+        {/* ── Twin Status Cards ── */}
+        <View style={styles.statusGrid}>
+          {/* Glycogen Reserve */}
+          <View style={styles.statusCard}>
+            <View style={styles.statusHeader}>
+              <Zap size={18} color="#C8B08C" />
+              <Text style={styles.statusLabel}>Glycogen Reserve</Text>
+            </View>
+            <Text style={styles.statusValue}>{Math.round(glycogen)}%</Text>
+            <View style={styles.gaugeBar}>
+              <View style={[styles.gaugeFill, {
+                width: `${glycogen}%`,
+                backgroundColor: glycogen > 60 ? '#4A6E52' : glycogen > 30 ? '#D4A574' : '#FF6B6B',
+              }]} />
+            </View>
+            <Text style={styles.statusSubtext}>{getGlycogenLabel(glycogen)}</Text>
+          </View>
+
+          {/* Insulin Sensitivity */}
+          <View style={styles.statusCard}>
+            <View style={styles.statusHeader}>
+              <Activity size={18} color="#C8B08C" />
+              <Text style={styles.statusLabel}>Insulin Sensitivity</Text>
+            </View>
+            <Text style={styles.statusValue}>{sensitivity.toFixed(2)}</Text>
+            <View style={styles.gaugeBar}>
+              <View style={[styles.gaugeFill, {
+                width: `${Math.min(sensitivity * 50, 100)}%`,
+                backgroundColor: sensitivity >= 0.9 ? '#4A6E52' : sensitivity >= 0.7 ? '#D4A574' : '#FF6B6B',
+              }]} />
+            </View>
+            <Text style={styles.statusSubtext}>{getSensitivityLabel(sensitivity)}</Text>
+          </View>
+        </View>
+
+        {/* Current Glucose */}
+        <View style={styles.glucoseCard}>
+          <Text style={styles.glucoseLabel}>Current Estimated Glucose</Text>
+          <Text style={[styles.glucoseValue, {
+            color: glucose > 140 ? '#FF6B6B' : glucose < 70 ? '#D4A574' : '#4A6E52',
+          }]}>{Math.round(glucose)} <Text style={styles.glucoseUnit}>mg/dL</Text></Text>
+        </View>
+
+        {/* Health Telemetry Quick View */}
+        {healthStatus && (
+          <View style={styles.telemetryRow}>
+            {healthStatus.last_sleep_hours && (
+              <View style={styles.telemetryItem}>
+                <Moon size={14} color="#A3A3A3" />
+                <Text style={styles.telemetryText}>{healthStatus.last_sleep_hours}h sleep</Text>
+              </View>
+            )}
+            {healthStatus.today_steps > 0 && (
+              <View style={styles.telemetryItem}>
+                <Activity size={14} color="#A3A3A3" />
+                <Text style={styles.telemetryText}>{healthStatus.today_steps.toLocaleString()} steps</Text>
+              </View>
+            )}
+            {healthStatus.last_hrv && (
+              <View style={styles.telemetryItem}>
+                <Heart size={14} color="#A3A3A3" />
+                <Text style={styles.telemetryText}>HRV {healthStatus.last_hrv}ms</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Glucose Trajectory Chart ── */}
+        <View style={styles.section}>
+          <GlucoseChart
+            trajectory={glucoseTrajectory}
+            title="Predicted Glucose Trajectory"
+          />
+        </View>
+
+        {/* ── Intent-Based Meal Generation ── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>What do you need?</Text>
+          <View style={styles.intentGrid}>
+            {INTENTS.map(intent => (
+              <Pressable
+                key={intent.key}
+                style={[styles.intentButton, { borderColor: intent.color }]}
+                onPress={() => handleGenerateMeal(intent.key)}
+                disabled={generatingMeal}
+              >
+                <Text style={styles.intentLabel}>{intent.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {generatingMeal && (
+            <View style={styles.generatingContainer}>
+              <ActivityIndicator size="small" color="#C8B08C" />
+              <Text style={styles.generatingText}>
+                Optimizing macros & generating recipe...
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── Generated Meal ── */}
+        {generatedMeal && (
+          <View style={styles.section}>
+            <View style={styles.mealCard}>
+              <Text style={styles.mealName}>{generatedMeal.name}</Text>
+
+              {/* Macro Summary */}
+              <View style={styles.macroRow}>
+                {Object.entries(generatedMeal.nutrition || {}).map(([key, val]) => (
+                  <View key={key} style={styles.macroItem}>
+                    <Text style={styles.macroValue}>{Math.round(val)}</Text>
+                    <Text style={styles.macroLabel}>
+                      {key === 'calories' ? 'kcal' : `g ${key}`}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Ingredients */}
+              <Text style={styles.mealSubtitle}>Ingredients</Text>
+              {generatedMeal.ingredients?.map((ing, i) => (
+                <Text key={i} style={styles.ingredientText}>
+                  • {ing.amount}{ing.unit} {ing.item}
+                </Text>
+              ))}
+
+              {/* Directions */}
+              <Text style={styles.mealSubtitle}>Directions</Text>
+              {generatedMeal.directions?.map((dir, i) => (
+                <Text key={i} style={styles.directionText}>{i + 1}. {dir}</Text>
+              ))}
+            </View>
+
+            {/* Post-meal glucose prediction */}
+            {mealTrajectory.length > 0 && (
+              <View style={{ marginTop: 15 }}>
+                <GlucoseChart
+                  trajectory={mealTrajectory}
+                  title="If you eat this meal..."
+                />
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Navigation Buttons ── */}
+        <Pressable style={styles.navButton} onPress={() => router.push('/mealmanagement')}>
+          <ChefHat size={20} color="#FFFFFF" />
+          <Text style={styles.navButtonText}>Meal Library</Text>
         </Pressable>
-        <Pressable
-          style={styles.planningButton}
-          onPress={() => router.replace("/mealplanner")}
-        >
-          <Calendar size={24} color="#FFFFFF" />
-          <Text style={styles.planningButtonText}>Meal Planning</Text>
+
+        <Pressable style={styles.navButton} onPress={() => router.push('/mealplanner')}>
+          <Calendar size={20} color="#FFFFFF" />
+          <Text style={styles.navButtonText}>Meal Planner</Text>
         </Pressable>
+
+        <Pressable style={[styles.navButton, { backgroundColor: '#5B7DB1' }]} onPress={() => router.push('/biosync')}>
+          <Heart size={20} color="#FFFFFF" />
+          <Text style={styles.navButtonText}>Sync Health Data</Text>
+        </Pressable>
+
+        <View style={{ height: 30 }} />
       </ScrollView>
-      {dropdownMenu}
+
+      {/* Dropdown menu */}
+      {showDropdown && (
+        <View style={StyleSheet.absoluteFill}>
+          <TouchableWithoutFeedback onPress={() => setShowDropdown(false)}>
+            <View style={styles.dropdownOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.dropdownContainer}>
+                  <Pressable style={styles.dropdownItem} onPress={() => { setShowDropdown(false); router.push('/biometricinfo'); }}>
+                    <Settings size={20} color="#C8B08C" />
+                    <Text style={styles.dropdownText}>Edit Profile</Text>
+                  </Pressable>
+                  <Pressable style={[styles.dropdownItem, styles.lastDropdownItem]} onPress={() => { setShowDropdown(false); handleSignOut(); }}>
+                    <LogOut size={20} color="#FF6B6B" />
+                    <Text style={[styles.dropdownText, { color: '#FF6B6B' }]}>Sign Out</Text>
+                  </Pressable>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      )}
     </>
   );
 }
@@ -462,22 +355,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  errorContainer: {
-    flex: 1,
-    backgroundColor: '#2E2E2E',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  loadingText: {
+    color: '#C8B08C',
+    marginTop: 10,
+    fontSize: 16,
   },
-  errorText: {
-    color: '#FF6B6B',
-    fontSize: 18,
-    textAlign: 'center',
-  },
-  header: {
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 15,
   },
   headerText: {
     color: '#C8B08C',
@@ -485,143 +374,181 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 2,
   },
-  section: {
-    marginHorizontal: 20,
-    marginBottom: 25,
+  profileIcon: {
+    padding: 8,
   },
-  sectionTitle: {
-    color: '#C8B08C',
-    fontSize: 22,
-    fontWeight: 'bold',
+
+  // ── Status Cards ──
+  statusGrid: {
+    flexDirection: 'row',
+    paddingHorizontal: 15,
+    gap: 10,
     marginBottom: 10,
   },
-  chartContainer: {
+  statusCard: {
+    flex: 1,
     backgroundColor: '#3B3B3B',
     borderRadius: 15,
     padding: 15,
   },
-  dataRow: {
-    marginBottom: 15,
-  },
-  labelContainer: {
+  statusHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
   },
-  label: {
+  statusLabel: {
+    color: '#A3A3A3',
+    fontSize: 12,
+  },
+  statusValue: {
     color: '#E1E1E1',
-    fontSize: 16,
+    fontSize: 28,
+    fontWeight: 'bold',
   },
-  value: {
-    color: '#C8B08C',
-    fontSize: 16,
-  },
-  barContainer: {
-    height: 10,
+  gaugeBar: {
+    height: 6,
     backgroundColor: '#2E2E2E',
-    borderRadius: 5,
+    borderRadius: 3,
+    marginVertical: 8,
     overflow: 'hidden',
   },
-  bar: {
-    position: 'absolute',
+  gaugeFill: {
     height: '100%',
-    backgroundColor: '#4A6E52',
+    borderRadius: 3,
   },
-  goalBar: {
-    position: 'absolute',
-    height: '100%',
-    backgroundColor: '#C8B08C',
-    opacity: 0.3,
+  statusSubtext: {
+    color: '#A3A3A3',
+    fontSize: 11,
   },
-  planningButton: {
-    backgroundColor: '#4A6E52',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 15,
-    borderRadius: 15,
-    marginHorizontal: 20,
-    marginBottom: 30,
-  },
-  planningButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 10,
-  },
-  mealSuggesterContainer: {
-    backgroundColor: '#3B3B3B', // Dark grey background similar to other sections
+
+  // ── Glucose Card ──
+  glucoseCard: {
+    backgroundColor: '#3B3B3B',
     borderRadius: 15,
     padding: 15,
-    marginHorizontal: 20,
-    marginBottom: 25, // Match spacing with other sections
-  },
-  suggesterText: {
-    color: '#E1E1E1', // Consistent text color across the app
-    fontSize: 16,
-    marginBottom: 15,
-  },
-  generateButton: {
-    backgroundColor: '#4A6E52', // Dark greenish color, aligned with the theme
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  generateButtonText: {
-    color: '#FFFFFF', // White text for better contrast
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 10,
-  },
-  mealName: {
-    color: '#C8B08C', // Beige color for section titles
-    fontSize: 20,
-    fontWeight: 'bold',
+    marginHorizontal: 15,
     marginBottom: 10,
+    alignItems: 'center',
   },
-  subTitle: {
-    color: '#E1E1E1',
-    fontSize: 16,
+  glucoseLabel: {
+    color: '#A3A3A3',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  glucoseValue: {
+    fontSize: 36,
     fontWeight: 'bold',
-    marginTop: 5,
+  },
+  glucoseUnit: {
+    fontSize: 16,
+    fontWeight: 'normal',
+    color: '#A3A3A3',
+  },
+
+  // ── Telemetry Row ──
+  telemetryRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 20,
+    paddingVertical: 8,
     marginBottom: 5,
   },
-  nutritionText: {
-    color: '#E1E1E1',
-    fontSize: 14,
-    marginBottom: 3,
-  },
-  buttonContainer: {
+  telemetryItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 15,
+    alignItems: 'center',
+    gap: 4,
   },
-  actionButton: {
+  telemetryText: {
+    color: '#A3A3A3',
+    fontSize: 12,
+  },
+
+  // ── Sections ──
+  section: {
+    marginHorizontal: 15,
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    color: '#C8B08C',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+
+  // ── Intent Buttons ──
+  intentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  intentButton: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#3B3B3B',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  intentLabel: {
+    color: '#E1E1E1',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  // ── Generating ──
+  generatingContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 5,
+    padding: 20,
+    gap: 10,
   },
-  regenerateButton: {
-    backgroundColor: '#4A6E52', // Dark greenish color to match the theme
-  },
-  saveButton: {
-    backgroundColor: '#C8B08C', // Beige color for consistency
-  },
-  savedButton: {
-    backgroundColor: '#8B7355', // Muted brown for saved state
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
+  generatingText: {
+    color: '#C8B08C',
     fontSize: 14,
+  },
+
+  // ── Generated Meal ──
+  mealCard: {
+    backgroundColor: '#3B3B3B',
+    borderRadius: 15,
+    padding: 18,
+  },
+  mealName: {
+    color: '#C8B08C',
+    fontSize: 20,
     fontWeight: 'bold',
-    marginLeft: 5,
+    marginBottom: 12,
+  },
+  macroRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 15,
+    paddingVertical: 10,
+    backgroundColor: '#2E2E2E',
+    borderRadius: 10,
+  },
+  macroItem: {
+    alignItems: 'center',
+  },
+  macroValue: {
+    color: '#E1E1E1',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  macroLabel: {
+    color: '#A3A3A3',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  mealSubtitle: {
+    color: '#E1E1E1',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 6,
   },
   ingredientText: {
     color: '#E1E1E1',
@@ -631,36 +558,29 @@ const styles = StyleSheet.create({
   directionText: {
     color: '#E1E1E1',
     fontSize: 14,
-    marginBottom: 3,
-    marginLeft: 10,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  profileIcon: {
-    padding: 8,
+    marginBottom: 4,
+    marginLeft: 8,
   },
 
-  dropdownItem: {
+  // ── Nav Buttons ──
+  navButton: {
+    backgroundColor: '#4A6E52',
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#5B5B5B',
+    borderRadius: 15,
+    marginHorizontal: 15,
+    marginBottom: 10,
+    gap: 10,
   },
-  dropdownText: {
-    color: '#E1E1E1',
-    marginLeft: 10,
+  navButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: 'bold',
   },
-  lastDropdownItem: {
-    borderBottomWidth: 0,
-  },
+
+  // ── Dropdown ──
   dropdownOverlay: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -675,5 +595,20 @@ const styles = StyleSheet.create({
     borderColor: '#5B5B5B',
     zIndex: 1000,
     elevation: 5,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#5B5B5B',
+  },
+  dropdownText: {
+    color: '#E1E1E1',
+    marginLeft: 10,
+    fontSize: 16,
+  },
+  lastDropdownItem: {
+    borderBottomWidth: 0,
   },
 });

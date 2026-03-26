@@ -14,14 +14,27 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.fusionbite"
+      "bundleIdentifier": "com.yourcompany.fusionbite",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "FusionBite needs access to your sleep and heart rate data to calibrate your Digital Twin.",
+        "NSHealthUpdateUsageDescription": "FusionBite needs access to write data to Apple Health."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.background-delivery": true
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.yourcompany.fusionbite"
+      "package": "com.yourcompany.fusionbite",
+      "permissions": [
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_HEART_RATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -29,7 +42,24 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "react-native-health-connect",
+        {
+          "permissions": ["READ_STEPS", "READ_SLEEP", "READ_HEART_RATE"]
+        }
+      ],
+      "./withHealthConnectManifest.js",
+      "./withHealthConnectMainActivity.js",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26,
+            "kotlinVersion": "1.9.25"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

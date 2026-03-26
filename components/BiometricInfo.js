@@ -7,7 +7,7 @@ import { ref, set, get } from "firebase/database";
 import app, { database } from "../firebaseConfig";
 import { GoogleGenAI } from "@google/genai";
 import Constants from 'expo-constants';
-import { useAlert } from '../app/AlertContext';
+import { useAlert } from '../context/AlertContext';
 import { ArrowBigLeftDash } from 'lucide-react-native';
 
 const GOOGLE_AI_API_KEY = Constants.expoConfig.extra.googleAiApiKey;

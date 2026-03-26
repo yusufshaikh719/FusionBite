@@ -26,3 +26,15 @@ firebaseConfig.js
 expo-env.d.ts
 # @end expo-cli
 
+# Python
+backend/venv/
+**/__pycache__/
+*.pyc
+
+# IDEs
+.idea/
+.vscode/
+
+# Secrets
+backend/firebase-service-account.json
+

@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { ref, set } from "firebase/database";
 import app, { database } from "../firebaseConfig";
-import { useAlert } from "../app/AlertContext";
+import { useAlert } from "../context/AlertContext";
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
@@ -31,7 +31,7 @@ export default function SignUp() {
       const userProfileRef = ref(database, `users/${userCredential.user.uid}/profile`);
       await set(userProfileRef, { username });
 
-      router.replace("/biometricinfo");
+      router.replace("/biosync");
     } catch (error) {
       console.error("Sign up error:", error);
       showAlert('error', getErrorMessage(error.code));
@@ -93,7 +93,8 @@ export default function SignUp() {
               onChangeText={setPassword}
               value={password}
               secureTextEntry={true}
-              autoComplete="new-password"
+              autoComplete="off"
+              importantForAutofill="no"
             />
           </View>
           <View style={styles.buttonContainer}>

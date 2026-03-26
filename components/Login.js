@@ -4,7 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { router } from 'expo-router';
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import app from '../firebaseConfig';
-import { useAlert } from '../app/AlertContext';
+import { useAlert } from '../context/AlertContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -81,7 +81,8 @@ export default function Login() {
               onChangeText={setPassword}
               value={password}
               secureTextEntry={true}
-              autoComplete="current-password"
+              autoComplete="off"
+              importantForAutofill="no"
             />
           </View>
           <View style={styles.buttonContainer}>
